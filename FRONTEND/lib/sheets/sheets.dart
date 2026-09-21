@@ -381,7 +381,7 @@ Future<void> showTaskDetailSheet(
                 children: [
                   Text(task.name, style: WayFonts.display(size: 18, color: c.ink)),
                   Text(
-                    'LV${task.level} · ${task.kind == TaskKind.measure ? 'Misura · ${task.reward == RewardCurve.exponential ? 'esponenziale' : 'lineare'}' : 'Completa'}',
+                    'LV${task.level} · ${task.kind == TaskKind.measure ? 'Misura · ${task.reward == RewardCurve.exponential ? 'esponenziale' : 'lineare'}' : task.kind == TaskKind.maintenance ? 'Mantenimento' : task.kind == TaskKind.abstinence ? 'Astinenza' : 'Completa'}',
                     style: WayFonts.ui(size: 12.5, color: c.inkSoft),
                   ),
                 ],

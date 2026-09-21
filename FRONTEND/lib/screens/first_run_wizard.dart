@@ -474,7 +474,7 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
             color: colors.bg,
-            border: Border.all(color: colors.fg.withOpacity(0.26)),
+            border: Border.all(color: colors.fg.withValues(alpha: 0.26)),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
