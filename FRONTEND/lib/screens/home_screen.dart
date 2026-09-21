@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../data/dates.dart';
 import '../data/glyphs.dart';
 import '../models/sabus_scoring.dart';
+import 'review_screen.dart';
 import '../fx/anchors.dart';
 import '../fx/fx_controller.dart';
 import '../fx/reward.dart';
@@ -132,6 +132,14 @@ class HomeScreen extends ConsumerWidget {
           _LevelUpCard(task: candidate),
         ],
         const SizedBox(height: 22),
+        if (data.reviewAvailable) ...[
+          _ReviewBanner(
+            onOpen: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ReviewScreen()),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         const SectionLabel('Esecuzione di oggi'),
         if (tasks.isEmpty)
           const EmptyStateBox(
@@ -347,6 +355,40 @@ class _LevelUpCard extends ConsumerWidget {
 
 /// Riga di esecuzione: spunta per le task complete, contatore per quelle
 /// a misura, con la tacca della soglia sulla barra.
+class _ReviewBanner extends StatelessWidget {
+  const _ReviewBanner({required this.onOpen});
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return GestureDetector(
+      onTap: onOpen,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: c.accentTint,
+          border: Border.all(color: c.accentSoft),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(children: [
+          Icon(Icons.history_toggle_off, color: c.accent, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Ieri — rivedi',
+                  style: WayFonts.ui(size: 14, weight: FontWeight.w700, color: c.ink)),
+              Text('Rivaluta a mente fredda · entro stasera',
+                  style: WayFonts.mono(size: 10.5, color: c.inkSoft)),
+            ]),
+          ),
+          Icon(Icons.chevron_right, color: c.inkFaint),
+        ]),
+      ),
+    );
+  }
+}
+
 class _MaintenanceRow extends ConsumerWidget {
   const _MaintenanceRow({required this.task, required this.day});
   final Task task;
