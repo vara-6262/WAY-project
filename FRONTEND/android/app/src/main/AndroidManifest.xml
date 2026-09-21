@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Richiesto da Android 13 (API 33) in poi -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
     <application
         android:label="way"

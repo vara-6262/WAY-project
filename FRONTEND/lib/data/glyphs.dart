@@ -1,4 +1,4 @@
-import 'package02:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 /// Icone delle task. La chiave finisce nel JSON, l'icona no: così si può
 /// cambiare set grafico senza migrare i dati salvati.
