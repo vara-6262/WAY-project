@@ -10,7 +10,7 @@
     <application
         android:label="way"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
         
         <!-- RECEIVER PER LE NOTIFICHE PIANIFICATE -->
         <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver" android:exported="false">
