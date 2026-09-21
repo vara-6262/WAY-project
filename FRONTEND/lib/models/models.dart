@@ -62,6 +62,10 @@ class Task {
     this.end = 23,
     this.period = DomainPeriod.daily,
     this.tau = 14,
+    this.succ = 0,
+    this.fail = 0,
+    this.streakSince,
+    this.archived = false,
     required this.level,
     required this.streak,
   });
@@ -87,6 +91,16 @@ class Task {
 
   /// Astinenza: durata della fase critica (giorni) per la curva a campana.
   final int tau;
+
+  /// Contatori del ciclo di vita (successi/fallimenti consecutivi).
+  final int succ;
+  final int fail;
+
+  /// Data da cui contare lo streak (azzerata con "Mantieni").
+  final DateTime? streakSince;
+
+  /// Task conclusa/archiviata (fuori dallo scope).
+  final bool archived;
 
   /// Le task nascono a livello 0 e salgono con la costanza.
   final int level;
@@ -114,6 +128,10 @@ class Task {
     int? end,
     DomainPeriod? period,
     int? tau,
+    int? succ,
+    int? fail,
+    DateTime? streakSince,
+    bool? archived,
     int? level,
     int? streak,
   }) {
@@ -131,6 +149,10 @@ class Task {
       end: end ?? this.end,
       period: period ?? this.period,
       tau: tau ?? this.tau,
+      succ: succ ?? this.succ,
+      fail: fail ?? this.fail,
+      streakSince: streakSince ?? this.streakSince,
+      archived: archived ?? this.archived,
       level: level ?? this.level,
       streak: streak ?? this.streak,
     );
@@ -150,6 +172,10 @@ class Task {
         'end': end,
         'period': period.name,
         'tau': tau,
+        'succ': succ,
+        'fail': fail,
+        'streakSince': streakSince?.toIso8601String(),
+        'archived': archived,
         'level': level,
         'streak': streak,
       };
@@ -181,6 +207,12 @@ class Task {
           orElse: () => DomainPeriod.daily,
         ),
         tau: (j['tau'] as num?)?.toInt() ?? 14,
+        succ: (j['succ'] as num?)?.toInt() ?? 0,
+        fail: (j['fail'] as num?)?.toInt() ?? 0,
+        streakSince: j['streakSince'] != null
+            ? DateTime.parse(j['streakSince'] as String)
+            : null,
+        archived: j['archived'] == true,
         level: (j['level'] as num?)?.toInt() ?? 0,
         streak: (j['streak'] as num?)?.toInt() ?? 0,
       );
