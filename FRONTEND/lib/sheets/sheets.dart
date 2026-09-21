@@ -6,7 +6,6 @@ import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../screens/place_wizard.dart';
-import '../services/notifications.dart';
 import '../state/providers.dart';
 import '../theme/way_colors.dart';
 import '../theme/way_theme.dart';
@@ -23,7 +22,7 @@ Future<T?> showAppSheet<T>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withOpacity(0.42),
+    barrierColor: Colors.black.withValues(alpha: 0.42),
     builder: (ctx) {
       return Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),

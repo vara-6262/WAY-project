@@ -50,7 +50,7 @@ class IslandBanner extends StatelessWidget {
                   borderRadius: BorderRadius.circular(open ? 29 : 17),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.55),
+                      color: Colors.black.withValues(alpha: 0.55),
                       blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),
@@ -104,7 +104,7 @@ class IslandBanner extends StatelessWidget {
                   style: WayFonts.mono(
                     size: 8.5,
                     weight: FontWeight.w700,
-                    color: Colors.white.withOpacity(0.52),
+                    color: Colors.white.withValues(alpha: 0.52),
                     letterSpacing: 1.3,
                   ),
                 ),
@@ -179,10 +179,10 @@ class _RewardCardViewState extends State<RewardCardView>
           decoration: BoxDecoration(
             color: c.surface,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: c.accent.withOpacity(0.34)),
+            border: Border.all(color: c.accent.withValues(alpha: 0.34)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 blurRadius: 48,
                 offset: const Offset(0, 18),
               ),
@@ -235,7 +235,7 @@ class _RewardCardViewState extends State<RewardCardView>
                         padding: const EdgeInsets.only(top: 11),
                         decoration: BoxDecoration(
                           border: Border(
-                            top: BorderSide(color: c.ink.withOpacity(0.12)),
+                            top: BorderSide(color: c.ink.withValues(alpha: 0.12)),
                           ),
                         ),
                         child: Text(
@@ -331,7 +331,7 @@ class _BlobPainter extends CustomPainter {
       final dx = math.sin(k * math.pi * 2) * 22;
       final dy = math.cos(k * math.pi * 2 * 0.7) * 18;
       final paint = Paint()
-        ..color = color.withOpacity(opacity)
+        ..color = color.withValues(alpha: opacity)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 26);
       canvas.drawCircle(base + Offset(dx, dy), r, paint);
     }
@@ -349,9 +349,9 @@ class _BlobPainter extends CustomPainter {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            scrim.withOpacity(0.54),
-            scrim.withOpacity(0.84),
-            scrim.withOpacity(0.92),
+            scrim.withValues(alpha: 0.54),
+            scrim.withValues(alpha: 0.84),
+            scrim.withValues(alpha: 0.92),
           ],
           stops: const [0, 0.55, 1],
         ).createShader(rect),

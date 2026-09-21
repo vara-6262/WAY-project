@@ -167,7 +167,7 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
           decoration: BoxDecoration(
             color: colors.bg,
-            border: Border.all(color: colors.fg.withOpacity(0.28)),
+            border: Border.all(color: colors.fg.withValues(alpha: 0.28)),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -470,6 +470,7 @@ class _Sphere extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _SliderRow extends StatelessWidget {
   const _SliderRow({
     required this.label,

@@ -72,7 +72,7 @@ class _SmoothLineChartState extends State<SmoothLineChart> {
                     sel: _sel,
                     fmt: fmt,
                     line: line,
-                    fill: line.withOpacity(0.12),
+                    fill: line.withValues(alpha: 0.12),
                     grid: c.line,
                     surface: c.surface,
                     ink: c.ink,
