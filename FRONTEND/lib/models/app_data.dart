@@ -234,6 +234,8 @@ extension AppStats on AppData {
   /// Percentuale della singola task in un giorno. Puo' superare 100.
   int percentOf(Task task, DateTime day) {
     final v = valueOf(task, day);
+    if (task.kind == TaskKind.maintenance) return v == 0 ? 100 : 0;
+    if (task.kind == TaskKind.abstinence) return v == 0 ? 100 : 0;
     if (task.kind == TaskKind.complete) return v > 0 ? 100 : 0;
     if (task.target <= 0) return 0;
     return (v / task.target * 100).round();

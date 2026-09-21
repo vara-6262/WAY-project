@@ -355,7 +355,7 @@ class Segmented<T> extends StatelessWidget {
                     boxShadow: values[i] == selected
                         ? [
                             BoxShadow(
-                              color: c.ink.withValues(alpha: 0.06),
+                              color: c.ink.withOpacity(0.06),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),

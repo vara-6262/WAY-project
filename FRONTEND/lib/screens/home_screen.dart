@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/dates.dart';
 import '../data/glyphs.dart';
+import '../models/sabus_scoring.dart';
 import '../fx/anchors.dart';
 import '../fx/fx_controller.dart';
 import '../fx/reward.dart';
@@ -143,12 +144,17 @@ class HomeScreen extends ConsumerWidget {
           for (final task in tasks)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: _ExecutionRow(
-                key: ValueKey(task.id),
-                task: task,
-                day: today,
-                onCommit: (v) => _commit(ref, task, v),
-              ),
+              child: switch (task.kind) {
+                TaskKind.maintenance =>
+                  _MaintenanceRow(task: task, day: today),
+                TaskKind.abstinence => _AbstinenceRow(task: task, day: today),
+                _ => _ExecutionRow(
+                    key: ValueKey(task.id),
+                    task: task,
+                    day: today,
+                    onCommit: (v) => _commit(ref, task, v),
+                  ),
+              },
             ),
         const SizedBox(height: 22),
         const SectionLabel('Andamento'),
@@ -341,6 +347,140 @@ class _LevelUpCard extends ConsumerWidget {
 
 /// Riga di esecuzione: spunta per le task complete, contatore per quelle
 /// a misura, con la tacca della soglia sulla barra.
+class _MaintenanceRow extends ConsumerWidget {
+  const _MaintenanceRow({required this.task, required this.day});
+  final Task task;
+  final DateTime day;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final data = ref.watch(appProvider);
+    final mask = data.valueOf(task, day).toInt();
+    final compromised = mask != 0;
+    final colors = difficultyColors(context, task.difficulty);
+    bool broken(int i) => (mask & (1 << i)) != 0;
+
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: compromised ? c.hardTint : c.surface2,
+        border: Border.all(color: compromised ? c.hard : c.line),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 36, height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: colors.bg, borderRadius: BorderRadius.circular(11)),
+            child: Icon(taskIcon(task.iconKey), size: 19,
+                color: compromised ? c.hard : colors.fg),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text(task.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: WayFonts.ui(size: 13.5, weight: FontWeight.w600, color: c.ink)),
+              const SizedBox(height: 4),
+              Text(compromised ? 'Compromessa oggi' : 'Intatta · LV${task.level}',
+                  style: WayFonts.mono(size: 10.5, color: compromised ? c.hard : c.easy)),
+            ]),
+          ),
+          Icon(compromised ? Icons.cancel : Icons.verified,
+              color: compromised ? c.hard : c.easy, size: 22),
+        ]),
+        if (task.criteria.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (var i = 0; i < task.criteria.length; i++)
+              GestureDetector(
+                onTap: () => ref.read(appProvider.notifier)
+                    .toggleMaintenanceCondition(task, i, day: day),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: broken(i) ? c.hardTint : c.surface,
+                    border: Border.all(color: broken(i) ? c.hard : c.line),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(broken(i) ? Icons.close : Icons.check, size: 14,
+                        color: broken(i) ? c.hard : c.easy),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(task.criteria[i].text,
+                          style: WayFonts.ui(size: 12,
+                              color: broken(i) ? c.hard : c.inkSoft,
+                              decoration: broken(i) ? TextDecoration.lineThrough : null)),
+                    ),
+                  ]),
+                ),
+              ),
+          ]),
+        ],
+      ]),
+    );
+  }
+}
+
+class _AbstinenceRow extends ConsumerWidget {
+  const _AbstinenceRow({required this.task, required this.day});
+  final Task task;
+  final DateTime day;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final data = ref.watch(appProvider);
+    final relapsed = data.valueOf(task, day) != 0;
+    final streak = data.derivedStreak(task);
+    final colors = difficultyColors(context, task.difficulty);
+
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: relapsed ? c.hardTint : c.surface2,
+        border: Border.all(color: relapsed ? c.hard : c.line),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(children: [
+        Container(
+          width: 36, height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: colors.bg, borderRadius: BorderRadius.circular(11)),
+          child: Icon(taskIcon(task.iconKey), size: 19,
+              color: relapsed ? c.hard : colors.fg),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(task.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: WayFonts.ui(size: 13.5, weight: FontWeight.w600, color: c.ink)),
+            const SizedBox(height: 4),
+            Text(relapsed ? 'Ricaduta oggi' : 'Pulito · ${streak}g di fila',
+                style: WayFonts.mono(size: 10.5, color: relapsed ? c.hard : c.easy)),
+          ]),
+        ),
+        GestureDetector(
+          onTap: () => ref.read(appProvider.notifier).toggleAbstinence(task, day: day),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: relapsed ? c.surface : c.hardTint,
+              border: Border.all(color: relapsed ? c.line : c.hard),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(relapsed ? 'Annulla' : 'Ricaduta',
+                style: WayFonts.mono(size: 11, weight: FontWeight.w700,
+                    color: relapsed ? c.inkSoft : c.hard)),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
 class _ExecutionRow extends ConsumerWidget {
   const _ExecutionRow({
     super.key,

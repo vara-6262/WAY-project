@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:way/models/models.dart';
 
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
@@ -16,13 +17,18 @@ class WizardScaffold extends StatelessWidget {
     this.nextLabel,
     required this.onNext,
     this.onBack,
-  });
+  })  : assert(stepCount > 0, 'stepCount deve essere maggiore di 0'),
+        assert(
+          stepIndex >= 0 && stepIndex < stepCount,
+          'stepIndex deve essere compreso tra 0 e stepCount - 1',
+        );
 
   final int stepIndex;
   final int stepCount;
   final String title;
   final String subtitle;
   final Widget body;
+
   /// Null quando l'azione sta nelle card di scelta: in quelle pagine un
   /// pulsante primario sarebbe un doppione.
   final String? nextLabel;
@@ -34,14 +40,17 @@ class WizardScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    // Prevenzione di divisione per zero o overflow visivi
+    final safeStepCount = stepCount < 1 ? 1 : stepCount;
+    final safeStepIndex = stepIndex.clamp(0, safeStepCount - 1);
+
     return Scaffold(
       backgroundColor: c.surface,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Barra di avanzamento sempre visibile: dice quanto manca,
-            // e cresce davvero se il percorso si allunga.
+            // Barra di avanzamento sempre visibile
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
               child: Column(
@@ -52,16 +61,18 @@ class WizardScaffold extends StatelessWidget {
                       Expanded(
                         child: Row(
                           children: [
-                            for (var i = 0; i < stepCount; i++) ...[
+                            for (var i = 0; i < safeStepCount; i++) ...[
                               if (i > 0) const SizedBox(width: 4),
                               Expanded(
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 260),
                                   height: 3,
                                   decoration: BoxDecoration(
-                                    color: i < stepIndex
+                                    color: i < safeStepIndex
                                         ? c.accent.withValues(alpha: 0.45)
-                                        : (i == stepIndex ? c.accent : c.surface3),
+                                        : (i == safeStepIndex
+                                            ? c.accent
+                                            : c.surface3),
                                     borderRadius: BorderRadius.circular(2),
                                   ),
                                 ),
@@ -73,7 +84,7 @@ class WizardScaffold extends StatelessWidget {
                       const SizedBox(width: 10),
                       Text.rich(
                         TextSpan(
-                          text: '${stepIndex + 1}',
+                          text: '${safeStepIndex + 1}',
                           style: WayFonts.mono(
                             size: 10,
                             weight: FontWeight.w700,
@@ -81,8 +92,11 @@ class WizardScaffold extends StatelessWidget {
                           ),
                           children: [
                             TextSpan(
-                              text: '/$stepCount',
-                              style: WayFonts.mono(size: 10, color: c.inkFaint),
+                              text: '/$safeStepCount',
+                              style: WayFonts.mono(
+                                size: 10,
+                                color: c.inkFaint,
+                              ),
                             ),
                           ],
                         ),
@@ -134,7 +148,10 @@ class WizardScaffold extends StatelessWidget {
                     ],
                     if (nextLabel != null)
                       Expanded(
-                        child: PrimaryButton(label: nextLabel!, onPressed: onNext),
+                        child: PrimaryButton(
+                          label: nextLabel!,
+                          onPressed: onNext,
+                        ),
                       )
                     else
                       const Spacer(),
@@ -201,7 +218,10 @@ class LabeledField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+        Text(
+          label.toUpperCase(),
+          style: WayFonts.label(color: c.inkFaint, size: 9.5),
+        ),
         const SizedBox(height: 7),
         TextField(
           controller: controller,
@@ -219,7 +239,8 @@ class LabeledField extends StatelessWidget {
             ),
             filled: true,
             fillColor: c.surface2,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: c.line),
@@ -255,11 +276,12 @@ class IconPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final keys = icons.keys.toList();
+    final entries = icons.entries.toList();
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: keys.length,
+      itemCount: entries.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 6,
         mainAxisSpacing: 7,
@@ -267,10 +289,10 @@ class IconPicker extends StatelessWidget {
         childAspectRatio: 1,
       ),
       itemBuilder: (context, i) {
-        final key = keys[i];
-        final on = key == selected;
+        final entry = entries[i];
+        final on = entry.key == selected;
         return GestureDetector(
-          onTap: () => onSelect(key),
+          onTap: () => onSelect(entry.key),
           child: Container(
             decoration: BoxDecoration(
               color: on ? c.accent : c.surface2,
@@ -278,7 +300,7 @@ class IconPicker extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              icons[key],
+              entry.value,
               size: 20,
               color: on ? c.accentInk : c.inkSoft,
             ),
@@ -289,26 +311,36 @@ class IconPicker extends StatelessWidget {
   }
 }
 
-/// Interruttore a due scelte con titolo e riga di spiegazione.
+/// Modello per ciascuna opzione di [BigSwitch].
+class BigSwitchOption<T> {
+  const BigSwitchOption({
+    required this.value,
+    required this.title,
+    required this.caption,
+  });
+
+  final T value;
+  final String title;
+  final String caption;
+}
+
+/// Interruttore a scelte multiple con titolo e riga di spiegazione.
 class BigSwitch<T> extends StatelessWidget {
   const BigSwitch({
     super.key,
-    required this.values,
-    required this.titles,
-    required this.captions,
+    required this.options,
     required this.selected,
     required this.onChanged,
-  });
+  }) : assert(options.length > 0, 'BigSwitch richiede almeno un\'opzione');
 
-  final List<T> values;
-  final List<String> titles;
-  final List<String> captions;
+  final List<BigSwitchOption<T>> options;
   final T selected;
   final ValueChanged<T> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
@@ -318,38 +350,45 @@ class BigSwitch<T> extends StatelessWidget {
       ),
       child: Row(
         children: [
-          for (var i = 0; i < values.length; i++) ...[
+          for (var i = 0; i < options.length; i++) ...[
             if (i > 0) const SizedBox(width: 3),
             Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => onChanged(values[i]),
+                onTap: () => onChanged(options[i].value),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: values[i] == selected ? c.accent : Colors.transparent,
+                    color: options[i].value == selected
+                        ? c.accent
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(11),
                   ),
                   child: Column(
                     children: [
                       Text(
-                        titles[i],
+                        options[i].title,
                         textAlign: TextAlign.center,
                         style: WayFonts.ui(
                           size: 13.5,
                           weight: FontWeight.w600,
-                          color: values[i] == selected ? c.accentInk : c.ink,
+                          color: options[i].value == selected
+                              ? c.accentInk
+                              : c.ink,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        captions[i],
+                        options[i].caption,
                         textAlign: TextAlign.center,
                         style: WayFonts.ui(
                           size: 10.5,
                           height: 1.3,
-                          color: values[i] == selected
+                          color: options[i].value == selected
                               ? c.accentInk.withValues(alpha: 0.74)
                               : c.inkFaint,
                         ),
@@ -365,7 +404,6 @@ class BigSwitch<T> extends StatelessWidget {
     );
   }
 }
-
 /// Nota esplicativa con il filetto laterale.
 class ExplainBox extends StatelessWidget {
   const ExplainBox(this.text, {super.key});
@@ -380,7 +418,8 @@ class ExplainBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: c.surface2,
         border: Border(left: BorderSide(color: c.accentSoft, width: 2)),
-        borderRadius: const BorderRadius.horizontal(right: Radius.circular(10)),
+        borderRadius:
+            const BorderRadius.horizontal(right: Radius.circular(10)),
       ),
       child: Text(text, style: WayFonts.ui(size: 12, color: c.inkSoft)),
     );

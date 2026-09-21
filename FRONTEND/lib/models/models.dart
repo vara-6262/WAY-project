@@ -19,7 +19,7 @@ Difficulty difficultyForCriteria(int count) {
 }
 
 /// Come si registra l'esecuzione: una spunta oppure una quantita'.
-enum TaskKind { complete, measure }
+enum TaskKind { complete, measure, maintenance, abstinence }
 
 /// Come cresce il valore di quello che fai oltre la soglia.
 enum RewardCurve { linear, exponential }
@@ -61,6 +61,7 @@ class Task {
     this.start = 6,
     this.end = 23,
     this.period = DomainPeriod.daily,
+    this.tau = 14,
     required this.level,
     required this.streak,
   });
@@ -83,6 +84,9 @@ class Task {
   final int start;
   final int end;
   final DomainPeriod period;
+
+  /// Astinenza: durata della fase critica (giorni) per la curva a campana.
+  final int tau;
 
   /// Le task nascono a livello 0 e salgono con la costanza.
   final int level;
@@ -109,6 +113,7 @@ class Task {
     int? start,
     int? end,
     DomainPeriod? period,
+    int? tau,
     int? level,
     int? streak,
   }) {
@@ -125,6 +130,7 @@ class Task {
       start: start ?? this.start,
       end: end ?? this.end,
       period: period ?? this.period,
+      tau: tau ?? this.tau,
       level: level ?? this.level,
       streak: streak ?? this.streak,
     );
@@ -143,6 +149,7 @@ class Task {
         'start': start,
         'end': end,
         'period': period.name,
+        'tau': tau,
         'level': level,
         'streak': streak,
       };
@@ -173,6 +180,7 @@ class Task {
           (p) => p.name == j['period'],
           orElse: () => DomainPeriod.daily,
         ),
+        tau: (j['tau'] as num?)?.toInt() ?? 14,
         level: (j['level'] as num?)?.toInt() ?? 0,
         streak: (j['streak'] as num?)?.toInt() ?? 0,
       );

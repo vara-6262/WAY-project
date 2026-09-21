@@ -178,7 +178,7 @@ class _TrendPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [colors.accent.withValues(alpha: 0.28), colors.accent.withValues(alpha: 0)],
+          colors: [colors.accent.withOpacity(0.28), colors.accent.withOpacity(0)],
         ).createShader(Offset.zero & size),
     );
 
@@ -208,10 +208,10 @@ class _TrendPainter extends CustomPainter {
         Offset(p.dx, 0),
         Offset(p.dx, size.height),
         Paint()
-          ..color = colors.accent.withValues(alpha: 0.35)
+          ..color = colors.accent.withOpacity(0.35)
           ..strokeWidth = 1,
       );
-      canvas.drawCircle(p, 6, Paint()..color = colors.accent.withValues(alpha: 0.22));
+      canvas.drawCircle(p, 6, Paint()..color = colors.accent.withOpacity(0.22));
       canvas.drawCircle(p, 4, dot);
     }
   }

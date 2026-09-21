@@ -16,7 +16,7 @@ class WayFonts {
     FontWeight weight = FontWeight.w400,
     Color? color,
     double height = 1.45,
-    double letterSpacing = 0,
+    double letterSpacing = 0, TextDecoration? decoration,
   }) {
     return GoogleFonts.getFont(
       'Manrope',
@@ -98,7 +98,7 @@ class WayTheme {
         activeTrackColor: c.accent,
         inactiveTrackColor: c.surface3,
         thumbColor: c.accent,
-        overlayColor: c.accent.withValues(alpha: 0.12),
+        overlayColor: c.accent.withOpacity(0.12),
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
       ),

@@ -6,6 +6,7 @@ import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../screens/place_wizard.dart';
+import '../services/notifications.dart';
 import '../state/providers.dart';
 import '../theme/way_colors.dart';
 import '../theme/way_theme.dart';
@@ -22,7 +23,7 @@ Future<T?> showAppSheet<T>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.42),
+    barrierColor: Colors.black.withOpacity(0.42),
     builder: (ctx) {
       return Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
@@ -380,7 +381,7 @@ Future<void> showTaskDetailSheet(
                 children: [
                   Text(task.name, style: WayFonts.display(size: 18, color: c.ink)),
                   Text(
-                    'LV${task.level} · ${task.kind == TaskKind.measure ? 'Misura · ${task.reward == RewardCurve.exponential ? 'esponenziale' : 'lineare'}' : 'Completa'}',
+                    'LV${task.level} · ${task.kind == TaskKind.measure ? 'Misura · ${task.reward == RewardCurve.exponential ? 'esponenziale' : 'lineare'}' : task.kind == TaskKind.maintenance ? 'Mantenimento' : task.kind == TaskKind.abstinence ? 'Astinenza' : 'Completa'}',
                     style: WayFonts.ui(size: 12.5, color: c.inkSoft),
                   ),
                 ],

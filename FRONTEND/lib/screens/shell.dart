@@ -7,6 +7,7 @@ import '../fx/fx_overlays.dart';
 import '../fx/reward_layer.dart';
 import '../onboarding/onboarding_flow.dart';
 import '../models/app_data.dart';
+import '../services/notifications.dart';
 import '../state/providers.dart';
 import '../theme/way_theme.dart';
 import 'home_screen.dart';

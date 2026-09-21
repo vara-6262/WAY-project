@@ -163,7 +163,7 @@ class _ConfettiPainter extends CustomPainter {
       final k = p.life / p.max;
       final alpha =
           k < 0.1 ? k / 0.1 : (1 - math.pow((k - 0.1) / 0.9, 2.2)).toDouble();
-      paint.color = p.color.withValues(alpha: alpha.clamp(0.0, 1.0));
+      paint.color = p.color.withOpacity(alpha.clamp(0.0, 1.0));
       canvas.save();
       canvas.translate(p.x, p.y);
       canvas.rotate(p.rot);

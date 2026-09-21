@@ -192,6 +192,20 @@ class AppController extends Notifier<AppData> {
     _write(state.copyWith(log: log));
   }
 
+  /// Mantenimento: accende/spegne il bit della condizione i (0 = intatta).
+  void toggleMaintenanceCondition(Task task, int index, {DateTime? day}) {
+    final cur = state.valueOf(task, day ?? DateTime.now()).toInt();
+    final bit = 1 << index;
+    final next = (cur & bit) != 0 ? cur & ~bit : cur | bit;
+    setValue(task, next.toDouble(), day: day);
+  }
+
+  /// Astinenza: alterna pulito (0) / ricaduta (1) per il giorno.
+  void toggleAbstinence(Task task, {DateTime? day}) {
+    final cur = state.valueOf(task, day ?? DateTime.now());
+    setValue(task, cur == 0 ? 1 : 0, day: day);
+  }
+
   void toggleDone(Task task, {DateTime? day}) {
     final current = state.valueOf(task, day ?? DateTime.now());
     setValue(task, current > 0 ? 0 : 1, day: day);
