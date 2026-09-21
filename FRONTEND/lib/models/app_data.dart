@@ -104,6 +104,7 @@ class AppData {
     required this.onboarding,
     this.ledger = const {},
     this.reviewed = const {},
+    this.lastLifecycleDay = '',
   });
 
   final List<Task> tasks;
@@ -127,6 +128,9 @@ class AppData {
   /// dataKey dei giorni gia' rivisti (una review per giorno).
   final Set<String> reviewed;
 
+  /// Ultimo giorno processato per i contatori del ciclo di vita.
+  final String lastLifecycleDay;
+
   AppData copyWith({
     List<Task>? tasks,
     List<String>? coreIds,
@@ -139,6 +143,7 @@ class AppData {
     OnboardingState? onboarding,
     Map<String, double>? ledger,
     Set<String>? reviewed,
+    String? lastLifecycleDay,
   }) {
     return AppData(
       tasks: tasks ?? this.tasks,
@@ -152,6 +157,7 @@ class AppData {
       onboarding: onboarding ?? this.onboarding,
       ledger: ledger ?? this.ledger,
       reviewed: reviewed ?? this.reviewed,
+      lastLifecycleDay: lastLifecycleDay ?? this.lastLifecycleDay,
     );
   }
 
@@ -168,6 +174,7 @@ class AppData {
         'onboarding': onboarding.toJson(),
         'ledger': ledger,
         'reviewed': reviewed.toList(),
+        'lastLifecycleDay': lastLifecycleDay,
       };
 
   factory AppData.fromJson(Map<String, dynamic> j) {
@@ -205,6 +212,7 @@ class AppData {
       reviewed: ((j['reviewed'] as List<dynamic>? ?? const [])
           .map((e) => e as String)
           .toSet()),
+      lastLifecycleDay: j['lastLifecycleDay'] as String? ?? '',
     );
   }
 }
@@ -252,8 +260,9 @@ extension AppStats on AppData {
     return ids.map(taskById).whereType<Task>().toList(growable: false);
   }
 
-  List<Task> tasksFor(DateTime day) =>
-      tasksInScope().where((t) => t.activeOn(day)).toList(growable: false);
+  List<Task> tasksFor(DateTime day) => tasksInScope()
+      .where((t) => !t.archived && t.activeOn(day))
+      .toList(growable: false);
 
   double valueOf(Task task, DateTime day) => log[Dates.key(day)]?[task.id] ?? 0;
 
