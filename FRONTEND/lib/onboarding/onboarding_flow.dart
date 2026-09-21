@@ -268,7 +268,7 @@ class _PulseRingState extends State<_PulseRing>
           border: Border.all(color: accent, width: 2),
           boxShadow: [
             BoxShadow(
-              color: accent.withOpacity(0.10 + 0.10 * _c.value),
+              color: accent.withValues(alpha: 0.10 + 0.10 * _c.value),
               blurRadius: 0,
               spreadRadius: 3 + 6 * _c.value,
             ),
@@ -305,11 +305,11 @@ class _CopyPanel extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
         decoration: BoxDecoration(
           color: const Color(0xF7100F0A),
-          border: Border.all(color: Colors.white.withOpacity(0.09)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.48),
+              color: Colors.black.withValues(alpha: 0.48),
               blurRadius: 48,
               offset: const Offset(0, 18),
             ),

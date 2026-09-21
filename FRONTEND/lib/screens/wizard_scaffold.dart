@@ -60,7 +60,7 @@ class WizardScaffold extends StatelessWidget {
                                   height: 3,
                                   decoration: BoxDecoration(
                                     color: i < stepIndex
-                                        ? c.accent.withOpacity(0.45)
+                                        ? c.accent.withValues(alpha: 0.45)
                                         : (i == stepIndex ? c.accent : c.surface3),
                                     borderRadius: BorderRadius.circular(2),
                                   ),
@@ -350,7 +350,7 @@ class BigSwitch<T> extends StatelessWidget {
                           size: 10.5,
                           height: 1.3,
                           color: values[i] == selected
-                              ? c.accentInk.withOpacity(0.74)
+                              ? c.accentInk.withValues(alpha: 0.74)
                               : c.inkFaint,
                         ),
                       ),
