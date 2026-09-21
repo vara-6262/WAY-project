@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../data/dates.dart';
 import 'app_data.dart';
 import 'models.dart';
@@ -6,6 +8,24 @@ import 'models.dart';
 /// punti con moltiplicatore di livello, number nerfato (al target = 0.5*target;
 /// l'esponenziale premia le unità e accelera oltre il target), bonus da streak,
 /// e streak DERIVATO dal log. Non tocca percentOf/dayScore esistenti.
+// ---- Costanti number (tarabili) ----
+const double _linPerUnit = 0.5; // punti per unità del lineare
+const double _expBase = 0.85;   // punti per unità BASE dell'esponenziale (~ una checklist)
+const double _expAccel = 0.12;  // quanto cresce ogni unità successiva
+// ---- Costanti astinenza ----
+const double _absFloor = 0.3;   // reward minimo di mantenimento
+const double _absPeak = 3.0;    // reward massimo al picco della campana
+
+double _linPoints(double v, double mult) => _linPerUnit * mult * v;
+double _expPoints(double v, double mult) =>
+    mult * (_expBase * v + _expAccel * v * (v - 1) / 2);
+
+/// Campana dell'astinenza: cresce nella fase critica (picco a n=tau), poi cala.
+double _bell(int n, int tau, double mult) {
+  final x = tau <= 0 ? 0.0 : n / tau;
+  return mult * (_absFloor + _absPeak * x * math.exp(1 - x));
+}
+
 extension SabusScoring on AppData {
   static const double numK = 0.5;
 
@@ -15,14 +35,20 @@ extension SabusScoring on AppData {
   bool taskCounts(Task t, DateTime day) {
     final v = valueOf(t, day);
     if (t.kind == TaskKind.complete) return v > 0;
-    return v >= t.target;
+    if (t.kind == TaskKind.maintenance) return v == 0; // intatta
+    if (t.kind == TaskKind.abstinence) return v == 0; // pulita
+    return v >= t.target; // measure
   }
 
   /// Punti attesi completando al target (denominatore della percentuale).
   double expectedAtTarget(Task t) {
     final m = sabusMult(t);
     if (t.kind == TaskKind.complete) return m;
-    return numK * t.target * m;
+    if (t.kind == TaskKind.maintenance) return m;
+    if (t.kind == TaskKind.abstinence) return _bell(derivedStreak(t), t.tau, m);
+    return t.reward == RewardCurve.exponential
+        ? _expPoints(t.target, m)
+        : _linPoints(t.target, m);
   }
 
   /// Punti effettivi del giorno. Sotto soglia = 0; al target = numK*target;
@@ -31,12 +57,12 @@ extension SabusScoring on AppData {
     final m = sabusMult(t);
     final v = valueOf(t, day);
     if (t.kind == TaskKind.complete) return v > 0 ? m : 0.0;
+    if (t.kind == TaskKind.maintenance) return v == 0 ? m : 0.0;
+    if (t.kind == TaskKind.abstinence) {
+      return v == 0 ? _bell(derivedStreak(t, asOf: day), t.tau, m) : 0.0;
+    }
     if (t.target <= 0) return 0.0;
-    final atTarget = numK * t.target * m;
-    final r = v / t.target;
-    return t.reward == RewardCurve.exponential
-        ? atTarget * (0.5 * r + 0.5 * r * r)
-        : atTarget * r;
+    return t.reward == RewardCurve.exponential ? _expPoints(v, m) : _linPoints(v, m);
   }
 
   /// Streak reale: occorrenze consecutive "contate" dal log, da ieri all'indietro.

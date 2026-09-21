@@ -251,7 +251,7 @@ class _Knob extends StatelessWidget {
                 color: c.surface,
                 boxShadow: [
                   BoxShadow(
-                    color: c.ink.withValues(alpha: 0.12),
+                    color: c.ink.withOpacity(0.12),
                     blurRadius: 4,
                     offset: const Offset(0, 1),
                   ),

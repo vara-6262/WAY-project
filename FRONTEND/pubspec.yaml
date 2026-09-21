@@ -16,6 +16,7 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.2
   flutter_timezone: ^3.0.1
+  material_symbols_icons: ^4.2960.0
 
 dev_dependencies:
   flutter_test:
