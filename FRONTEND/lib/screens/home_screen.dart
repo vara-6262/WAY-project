@@ -1,0 +1,556 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../data/dates.dart';
+import '../data/glyphs.dart';
+import '../fx/anchors.dart';
+import '../fx/fx_controller.dart';
+import '../fx/reward.dart';
+import '../models/app_data.dart';
+import '../models/models.dart';
+import '../sheets/sheets.dart';
+import '../state/providers.dart';
+import '../theme/way_theme.dart';
+import '../widgets/common.dart';
+import '../widgets/progress_ring.dart';
+import '../widgets/trend_chart.dart';
+
+/// Home: dove si esegue. Le task non si creano qui, si registrano.
+class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key, required this.onOpenPlaces});
+
+  final VoidCallback onOpenPlaces;
+
+  /// Un solo punto di scrittura per l'esecuzione: calcola il prima e il
+  /// dopo, aggiorna, e decide quanto festeggiare.
+  void _commit(WidgetRef ref, Task task, double value) {
+    final data = ref.read(appProvider);
+    final fx = ref.read(fxProvider);
+    final today = Dates.today();
+
+    final beforeTask = data.percentOf(task, today);
+    final beforeValue = data.valueOf(task, today);
+    final beforeDay = data.dayScore(today) ?? 0;
+
+    ref.read(appProvider.notifier).setValue(task, value, day: today);
+
+    final after = ref.read(appProvider);
+    final afterTask = after.percentOf(task, today);
+    final afterDay = after.dayScore(today) ?? 0;
+
+    final taskWon = beforeTask < 100 && afterTask >= 100;
+    final dayWon = beforeDay < 100 && afterDay >= 100;
+    if (taskWon && !dayWon) {
+      Reward.taskDone(fx, task, anchorOf(taskAnchorKey(task.id)));
+    }
+
+    if (dayWon) {
+      final list = after.tasksFor(today);
+      final place = after.activePlace;
+      Reward.dayDone(
+        fx,
+        origin: anchorOf(ringKey),
+        percent: afterDay,
+        done: list.where((t) => after.percentOf(t, today) >= 100).length,
+        total: list.length,
+        streak: after.dayStreak(),
+        placeName: place?.name ?? 'Core Session',
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final data = ref.watch(appProvider);
+    final today = Dates.today();
+    final tasks = data.tasksFor(today);
+    final score = data.dayScore(today) ?? 0;
+    final done = tasks.where((t) => data.percentOf(t, today) >= 100).length;
+    final place = data.activePlace;
+    final candidate = data.levelUpCandidate();
+    final hour = DateTime.now().hour;
+    final greeting =
+        hour < 12 ? 'Buongiorno' : (hour < 18 ? 'Buon pomeriggio' : 'Buonasera');
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$greeting,',
+                    style: WayFonts.display(size: 24, color: c.ink),
+                  ),
+                  Text(
+                    'Manuel',
+                    style: WayFonts.display(size: 24, color: c.accent),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Da cosa iniziamo oggi?',
+                    style: WayFonts.ui(size: 12.5, color: c.inkFaint),
+                  ),
+                ],
+              ),
+            ),
+            GestureDetector(
+              onTap: () => showProfileSheet(context, ref),
+              child: Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: c.surface2,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: c.line),
+                ),
+                child: Text(
+                  'M',
+                  style: WayFonts.display(size: 15, color: c.ink),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _TodayCard(
+          score: score,
+          done: done,
+          total: tasks.length,
+          place: place,
+          onOpenPlaces: onOpenPlaces,
+        ),
+        if (candidate != null) ...[
+          const SizedBox(height: 14),
+          _LevelUpCard(task: candidate),
+        ],
+        const SizedBox(height: 22),
+        const SectionLabel('Esecuzione di oggi'),
+        if (tasks.isEmpty)
+          const EmptyStateBox(
+            icon: Icons.checklist_outlined,
+            title: 'Giornata libera',
+            body:
+                'Nessuna task dell\'ambiente attivo cade oggi. È una scelta della configurazione, non un buco.',
+          )
+        else
+          for (final task in tasks)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _ExecutionRow(
+                key: ValueKey(task.id),
+                task: task,
+                day: today,
+                onCommit: (v) => _commit(ref, task, v),
+              ),
+            ),
+        const SizedBox(height: 22),
+        const SectionLabel('Andamento'),
+        _TrendSection(data: data),
+      ],
+    );
+  }
+}
+
+class _TodayCard extends StatelessWidget {
+  const _TodayCard({
+    required this.score,
+    required this.done,
+    required this.total,
+    required this.place,
+    required this.onOpenPlaces,
+  });
+
+  final int score;
+  final int done;
+  final int total;
+  final Place? place;
+  final VoidCallback onOpenPlaces;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final today = Dates.today();
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: c.surface2,
+        border: Border.all(color: c.lineSoft),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Row(
+        children: [
+          ProgressRing(key: ringKey, percent: score),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${Dates.dayLong[Dates.weekdayIndex(today)].capitalize()}, '
+                  '${today.day} ${Dates.months[today.month - 1].capitalize()}',
+                  style: WayFonts.ui(size: 11.5, color: c.inkFaint),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$done su $total completate',
+                  style: WayFonts.display(size: 16, color: c.ink),
+                ),
+                const SizedBox(height: 9),
+                GestureDetector(
+                  onTap: onOpenPlaces,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 14, 9),
+                    decoration: BoxDecoration(
+                      color: c.surface3,
+                      border: Border.all(color: c.line),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          place == null
+                              ? Icons.hub_outlined
+                              : placeGlyph(place!.glyphKey),
+                          size: 14,
+                          color: c.accent,
+                        ),
+                        const SizedBox(width: 7),
+                        Flexible(
+                          child: Text(
+                            place?.name ?? 'Core Session',
+                            overflow: TextOverflow.ellipsis,
+                            style: WayFonts.ui(
+                              size: 12,
+                              weight: FontWeight.w700,
+                              color: c.ink,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelUpCard extends ConsumerWidget {
+  const _LevelUpCard({required this.task});
+
+  final Task task;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: c.accentTint,
+        border: Border.all(color: c.accentSoft),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome, size: 20, color: c.accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: WayFonts.ui(size: 12.5, color: c.ink),
+                children: [
+                  TextSpan(
+                    text: task.name,
+                    style: WayFonts.ui(
+                      size: 12.5,
+                      weight: FontWeight.w800,
+                      color: c.ink,
+                    ),
+                  ),
+                  TextSpan(text: ' è costante da ${task.streak} esecuzioni.\n'),
+                  const TextSpan(text: 'Passare a '),
+                  TextSpan(
+                    text: 'LV${task.level + 1}',
+                    style: WayFonts.ui(
+                      size: 12.5,
+                      weight: FontWeight.w800,
+                      color: c.ink,
+                    ),
+                  ),
+                  const TextSpan(text: '?'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  final from = task.level;
+                  ref.read(appProvider.notifier).acceptLevelUp(task);
+                  final updated = ref
+                      .read(appProvider)
+                      .taskById(task.id);
+                  if (updated == null) return;
+                  final island = Offset(
+                    MediaQuery.of(context).size.width / 2,
+                    MediaQuery.of(context).padding.top + 40,
+                  );
+                  Reward.levelUp(ref.read(fxProvider), updated, from, island);
+                },
+                child: Text(
+                  'Accetta',
+                  style: WayFonts.ui(
+                    size: 12.5,
+                    weight: FontWeight.w800,
+                    color: c.accent,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 7),
+              GestureDetector(
+                onTap: () => ref.read(appProvider.notifier).dismissLevelUp(task),
+                child: Text(
+                  'Non ora',
+                  style: WayFonts.ui(size: 12.5, color: c.inkFaint),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Riga di esecuzione: spunta per le task complete, contatore per quelle
+/// a misura, con la tacca della soglia sulla barra.
+class _ExecutionRow extends ConsumerWidget {
+  const _ExecutionRow({
+    super.key,
+    required this.task,
+    required this.day,
+    required this.onCommit,
+  });
+
+  final Task task;
+  final DateTime day;
+  final ValueChanged<double> onCommit;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final data = ref.watch(appProvider);
+    final colors = difficultyColors(context, task.difficulty);
+    final value = data.valueOf(task, day);
+    final percent = data.percentOf(task, day);
+    final complete = percent >= 100;
+    final step = task.target >= 20 ? 5.0 : (task.target >= 8 ? 1.0 : 0.5);
+
+    return Container(
+      key: taskAnchorKey(task.id),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: c.surface2,
+        border: Border.all(color: complete ? c.accentSoft : c.line),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: c.surface3, shape: BoxShape.circle),
+            child: Icon(taskIcon(task.iconKey), size: 19, color: colors.fg),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        task.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WayFonts.ui(
+                          size: 13.5,
+                          weight: FontWeight.w800,
+                          color: complete ? c.inkSoft : c.ink,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '| LV${task.level}',
+                      style: WayFonts.mono(size: 10, color: c.inkFaint),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  task.kind == TaskKind.measure
+                      ? '${fmtNum(value)} / ${fmtNum(task.target)} · $percent%'
+                      : (complete ? 'Fatto' : 'Da fare'),
+                  style: WayFonts.mono(size: 10.5, color: c.inkFaint),
+                ),
+                if (task.kind == TaskKind.measure) ...[
+                  const SizedBox(height: 7),
+                  MeasureBar(
+                    percent: percent,
+                    color: colors.fg,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          if (task.kind == TaskKind.complete)
+            CheckButton(
+              on: value > 0,
+              onTap: () => onCommit(value > 0 ? 0 : 1),
+            )
+          else
+            StepperControl(
+              value: value,
+              onMinus: () => onCommit((value - step).clamp(0, double.infinity)),
+              onPlus: () => onCommit(value + step),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrendSection extends ConsumerWidget {
+  const _TrendSection({required this.data});
+
+  final AppData data;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final today = Dates.today();
+    final values = <int?>[];
+    final labels = <String>[];
+
+    switch (data.range) {
+      case TrendRange.week:
+        for (var i = 6; i >= 0; i--) {
+          final day = Dates.addDays(today, -i);
+          values.add(data.dayScore(day));
+          labels.add(Dates.dayShort[Dates.weekdayIndex(day)]);
+        }
+        break;
+      case TrendRange.month:
+        for (var i = 29; i >= 0; i--) {
+          final day = Dates.addDays(today, -i);
+          values.add(data.dayScore(day));
+          labels.add(i % 7 == 0 ? '${day.day}' : '');
+        }
+        break;
+      case TrendRange.year:
+        for (var m = 11; m >= 0; m--) {
+          final ref0 = DateTime(today.year, today.month - m, 1);
+          var sum = 0;
+          var count = 0;
+          for (var d = 1; d <= 28; d++) {
+            final day = DateTime(ref0.year, ref0.month, d);
+            if (day.isAfter(today)) break;
+            final s = data.dayScore(day);
+            if (s != null) {
+              sum += s;
+              count++;
+            }
+          }
+          values.add(count == 0 ? null : (sum / count).round());
+          labels.add(Dates.months[ref0.month - 1][0].toUpperCase());
+        }
+        break;
+    }
+
+    final valid = values.whereType<int>().toList();
+    final average = valid.isEmpty
+        ? 0
+        : (valid.reduce((a, b) => a + b) / valid.length).round();
+    final overHundred = valid.where((v) => v >= 100).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Segmented<TrendRange>(
+          values: TrendRange.values,
+          labels: TrendRange.values.map((r) => r.label).toList(),
+          selected: data.range,
+          onChanged: (r) => ref.read(appProvider.notifier).setRange(r),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 16, 14, 12),
+          decoration: BoxDecoration(
+            color: c.surface2,
+            border: Border.all(color: c.lineSoft),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TrendChart(values: values, labels: labels),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.only(top: 11),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: c.line)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('MEDIA PERIODO',
+                            style: WayFonts.label(color: c.inkFaint, size: 9)),
+                        Text('$average%',
+                            style: WayFonts.display(size: 17, color: c.accent)),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('GIORNI ≥ 100%',
+                            style: WayFonts.label(color: c.inkFaint, size: 9)),
+                        Text('$overHundred/${valid.length}',
+                            style: WayFonts.display(size: 17, color: c.accent)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

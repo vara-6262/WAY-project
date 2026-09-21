@@ -1,0 +1,9 @@
+{
+  "name": "sabus-hub",
+  "version": "0.1.0",
+  "description": "Server hub per sincronizzare Sabus tra desktop e telefono.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
