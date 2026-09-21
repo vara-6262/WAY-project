@@ -6,7 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/dates.dart';
 import '../data/seed.dart';
+import '../data/dates.dart';
 import '../models/app_data.dart';
+import '../models/sabus_scoring.dart';
 import '../theme/way_colors.dart';
 import '../services/notifications.dart';
 import '../models/models.dart';
@@ -99,7 +101,7 @@ class ModeController extends Notifier<PrototypeMode> {
 
 class AppController extends Notifier<AppData> {
   @override
-  AppData build() => ref.read(bootstrapProvider).data;
+  AppData build() => _consolidate(ref.read(bootstrapProvider).data);
 
   PrototypeMode get _mode => ref.read(modeProvider);
 
@@ -115,6 +117,82 @@ class AppController extends Notifier<AppData> {
   }
 
   void resetCurrentMode() => _write(Bootstrap.freshData(_mode));
+
+  // ---- Rollover / snapshot ----
+  Map<String, Map<String, double>> _deepLog(AppData d) => {
+        for (final e in d.log.entries) e.key: Map<String, double>.from(e.value),
+      };
+
+  double _basePoints(AppData d, String dateKey) {
+    final day = Dates.parse(dateKey);
+    var sum = 0.0;
+    for (final t in d.tasksFor(day)) {
+      sum += d.taskPoints(t, day);
+    }
+    return sum;
+  }
+
+  /// Consolida i giorni passati non ancora sigillati (ledger dai valori del log).
+  AppData _consolidate(AppData d) {
+    final todayKey = Dates.key(Dates.today());
+    final ledger = Map<String, double>.from(d.ledger);
+    for (final k in d.log.keys) {
+      if (k.compareTo(todayKey) >= 0) continue;
+      if (d.reviewed.contains(k)) continue;
+      ledger[k] = _basePoints(d, k);
+    }
+    return d.copyWith(ledger: ledger);
+  }
+
+  // ---- Review di ieri ----
+  /// Applica la review: delta dei punti DIMEZZATO; lo streak si puo' salvare
+  /// (gli "add" entrano nel log) ma non si spezza (le rimozioni non lo toccano).
+  void applyReview(Map<String, double> proposed) {
+    final y = Dates.addDays(Dates.today(), -1);
+    final key = Dates.key(y);
+    final tasks = state.tasksFor(y);
+
+    // stato proposto (copia del log con i valori proposti per ieri)
+    final propLog = _deepLog(state);
+    final propDay = Map<String, double>.from(propLog[key] ?? const {});
+    for (final t in tasks) {
+      if (proposed.containsKey(t.id)) propDay[t.id] = proposed[t.id]!;
+    }
+    propLog[key] = propDay;
+    final proposedData = state.copyWith(log: propLog);
+
+    var originalBase = 0.0, proposedBase = 0.0;
+    for (final t in tasks) {
+      originalBase += state.taskPoints(t, y);
+      proposedBase += proposedData.taskPoints(t, y);
+    }
+    final sealedPts = originalBase + (proposedBase - originalBase) * 0.5;
+
+    // log finale: scrivo solo gli "add" che fanno contare la task (streak salvato);
+    // le rimozioni non toccano il log (streak protetto).
+    final finalLog = _deepLog(state);
+    final finalDay = Map<String, double>.from(finalLog[key] ?? const {});
+    for (final t in tasks) {
+      final origCounts = state.taskCounts(t, y);
+      final propCounts = proposedData.taskCounts(t, y);
+      if (propCounts && !origCounts) {
+        finalDay[t.id] = proposed[t.id] ?? finalDay[t.id] ?? 1;
+      }
+    }
+    finalLog[key] = finalDay;
+
+    final ledger = Map<String, double>.from(state.ledger)..[key] = sealedPts;
+    final reviewed = {...state.reviewed, key};
+    _write(state.copyWith(log: finalLog, ledger: ledger, reviewed: reviewed));
+  }
+
+  /// Salta la review: sigilla ieri com'era (nessuna correzione).
+  void skipReview() {
+    final key = Dates.key(Dates.addDays(Dates.today(), -1));
+    final ledger = Map<String, double>.from(state.ledger)
+      ..[key] = _basePoints(state, key);
+    _write(state.copyWith(ledger: ledger, reviewed: {...state.reviewed, key}));
+  }
 
   // --- Task -----------------------------------------------------------------
 

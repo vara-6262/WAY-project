@@ -116,7 +116,8 @@ extension SabusScoring on AppData {
   int? dayPercentSabus(DateTime day) {
     final exp = expectedPointsFor(day);
     if (exp <= 0) return null;
-    final total = dayPoints(day) * (1 + dayBonusFraction(day));
+    final base = ledger[Dates.key(day)] ?? dayPoints(day);
+    final total = base * (1 + dayBonusFraction(day));
     return (total / exp * 100).round();
   }
 
