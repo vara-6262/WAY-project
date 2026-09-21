@@ -29,6 +29,20 @@ double _bell(int n, int tau, double mult) {
 extension SabusScoring on AppData {
   static const double numK = 0.5;
 
+  // Soglie del ciclo di vita
+  static const int upThreshold = 14; // successi per l'upgrade
+  static const int failThreshold = 3; // fallimenti per la riconfigurazione
+  static const double absEndK = 3.0; // fine astinenza a ~absEndK * tau
+
+  bool upgradeReady(Task t) =>
+      t.kind != TaskKind.abstinence && !t.archived && t.succ >= upThreshold;
+  bool reconfigReady(Task t) =>
+      t.kind != TaskKind.abstinence && !t.archived && t.fail >= failThreshold;
+  bool abstinenceConcluded(Task t) =>
+      t.kind == TaskKind.abstinence &&
+      !t.archived &&
+      derivedStreak(t) >= (absEndK * t.tau).round();
+
   double sabusMult(Task t) => 1 + 0.5 * t.level; // livello 0 = base
 
   /// Il giorno "conta" (streak): complete = fatto; measure = raggiunta la soglia.
@@ -68,9 +82,11 @@ extension SabusScoring on AppData {
   /// Streak reale: occorrenze consecutive "contate" dal log, da ieri all'indietro.
   int derivedStreak(Task t, {DateTime? asOf}) {
     final ref = Dates.dayOf(asOf ?? DateTime.now());
+    final floor = t.streakSince;
     var day = Dates.addDays(ref, -1);
     var streak = 0;
     for (var i = 0; i < 400; i++) {
+      if (floor != null && day.isBefore(Dates.dayOf(floor))) break;
       if (t.activeOn(day)) {
         if (taskCounts(t, day)) {
           streak++;
@@ -116,7 +132,8 @@ extension SabusScoring on AppData {
   int? dayPercentSabus(DateTime day) {
     final exp = expectedPointsFor(day);
     if (exp <= 0) return null;
-    final total = dayPoints(day) * (1 + dayBonusFraction(day));
+    final base = ledger[Dates.key(day)] ?? dayPoints(day);
+    final total = base * (1 + dayBonusFraction(day));
     return (total / exp * 100).round();
   }
 

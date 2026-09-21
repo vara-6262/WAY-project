@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/dates.dart';
 import '../data/glyphs.dart';
 import '../models/sabus_scoring.dart';
+import 'review_screen.dart';
+import 'task_evolution_screen.dart';
 import '../fx/anchors.dart';
 import '../fx/fx_controller.dart';
 import '../fx/reward.dart';
@@ -127,11 +129,15 @@ class HomeScreen extends ConsumerWidget {
           place: place,
           onOpenPlaces: onOpenPlaces,
         ),
-        if (candidate != null) ...[
-          const SizedBox(height: 14),
-          _LevelUpCard(task: candidate),
-        ],
         const SizedBox(height: 22),
+        if (data.reviewAvailable) ...[
+          _ReviewBanner(
+            onOpen: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ReviewScreen()),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         const SectionLabel('Esecuzione di oggi'),
         if (tasks.isEmpty)
           const EmptyStateBox(
@@ -144,17 +150,26 @@ class HomeScreen extends ConsumerWidget {
           for (final task in tasks)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: switch (task.kind) {
-                TaskKind.maintenance =>
-                  _MaintenanceRow(task: task, day: today),
-                TaskKind.abstinence => _AbstinenceRow(task: task, day: today),
-                _ => _ExecutionRow(
-                    key: ValueKey(task.id),
-                    task: task,
-                    day: today,
-                    onCommit: (v) => _commit(ref, task, v),
-                  ),
-              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (data.upgradeReady(task) ||
+                      data.reconfigReady(task) ||
+                      data.abstinenceConcluded(task))
+                    _EvolveBadge(task: task),
+                  switch (task.kind) {
+                    TaskKind.maintenance =>
+                      _MaintenanceRow(task: task, day: today),
+                    TaskKind.abstinence => _AbstinenceRow(task: task, day: today),
+                    _ => _ExecutionRow(
+                        key: ValueKey(task.id),
+                        task: task,
+                        day: today,
+                        onCommit: (v) => _commit(ref, task, v),
+                      ),
+                  },
+                ],
+              ),
             ),
         const SizedBox(height: 22),
         const SectionLabel('Andamento'),
@@ -347,6 +362,94 @@ class _LevelUpCard extends ConsumerWidget {
 
 /// Riga di esecuzione: spunta per le task complete, contatore per quelle
 /// a misura, con la tacca della soglia sulla barra.
+class _EvolveBadge extends ConsumerWidget {
+  const _EvolveBadge({required this.task});
+  final Task task;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final data = ref.watch(appProvider);
+    late final String label;
+    late final IconData icon;
+    late final Color col;
+    late final VoidCallback onTap;
+    if (data.abstinenceConcluded(task)) {
+      label = 'Conclusa · archivia';
+      icon = Icons.emoji_events_outlined;
+      col = c.easy;
+      onTap = () => ref.read(appProvider.notifier).archiveTask(task);
+    } else if (data.reconfigReady(task)) {
+      label = 'Rivedi';
+      icon = Icons.build_outlined;
+      col = c.hard;
+      onTap = () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => TaskEvolutionScreen(taskId: task.id, mode: 'reconfig')));
+    } else {
+      label = 'Level up';
+      icon = Icons.trending_up;
+      col = c.accent;
+      onTap = () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => TaskEvolutionScreen(taskId: task.id, mode: 'upgrade')));
+    }
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: col.withValues(alpha: 0.12),
+          border: Border.all(color: col.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 16, color: col),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(label,
+                style: WayFonts.ui(size: 12.5, weight: FontWeight.w700, color: col)),
+          ),
+          Icon(Icons.chevron_right, size: 18, color: col),
+        ]),
+      ),
+    );
+  }
+}
+
+class _ReviewBanner extends StatelessWidget {
+  const _ReviewBanner({required this.onOpen});
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return GestureDetector(
+      onTap: onOpen,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: c.accentTint,
+          border: Border.all(color: c.accentSoft),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(children: [
+          Icon(Icons.history_toggle_off, color: c.accent, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Ieri — rivedi',
+                  style: WayFonts.ui(size: 14, weight: FontWeight.w700, color: c.ink)),
+              Text('Rivaluta a mente fredda · entro stasera',
+                  style: WayFonts.mono(size: 10.5, color: c.inkSoft)),
+            ]),
+          ),
+          Icon(Icons.chevron_right, color: c.inkFaint),
+        ]),
+      ),
+    );
+  }
+}
+
 class _MaintenanceRow extends ConsumerWidget {
   const _MaintenanceRow({required this.task, required this.day});
   final Task task;

@@ -102,6 +102,9 @@ class AppData {
     required this.dismissedLevelUps,
     required this.range,
     required this.onboarding,
+    this.ledger = const {},
+    this.reviewed = const {},
+    this.lastLifecycleDay = '',
   });
 
   final List<Task> tasks;
@@ -119,6 +122,15 @@ class AppData {
   final TrendRange range;
   final OnboardingState onboarding;
 
+  /// dataKey -> punti sigillati del giorno (consolidati / rivisti).
+  final Map<String, double> ledger;
+
+  /// dataKey dei giorni gia' rivisti (una review per giorno).
+  final Set<String> reviewed;
+
+  /// Ultimo giorno processato per i contatori del ciclo di vita.
+  final String lastLifecycleDay;
+
   AppData copyWith({
     List<Task>? tasks,
     List<String>? coreIds,
@@ -129,6 +141,9 @@ class AppData {
     List<String>? dismissedLevelUps,
     TrendRange? range,
     OnboardingState? onboarding,
+    Map<String, double>? ledger,
+    Set<String>? reviewed,
+    String? lastLifecycleDay,
   }) {
     return AppData(
       tasks: tasks ?? this.tasks,
@@ -140,6 +155,9 @@ class AppData {
       dismissedLevelUps: dismissedLevelUps ?? this.dismissedLevelUps,
       range: range ?? this.range,
       onboarding: onboarding ?? this.onboarding,
+      ledger: ledger ?? this.ledger,
+      reviewed: reviewed ?? this.reviewed,
+      lastLifecycleDay: lastLifecycleDay ?? this.lastLifecycleDay,
     );
   }
 
@@ -154,6 +172,9 @@ class AppData {
         'dismissedLevelUps': dismissedLevelUps,
         'range': range.name,
         'onboarding': onboarding.toJson(),
+        'ledger': ledger,
+        'reviewed': reviewed.toList(),
+        'lastLifecycleDay': lastLifecycleDay,
       };
 
   factory AppData.fromJson(Map<String, dynamic> j) {
@@ -186,6 +207,12 @@ class AppData {
       onboarding: j['onboarding'] == null
           ? OnboardingState.finished
           : OnboardingState.fromJson(j['onboarding'] as Map<String, dynamic>),
+      ledger: (j['ledger'] as Map<String, dynamic>? ?? const {})
+          .map((k, v) => MapEntry(k, (v as num).toDouble())),
+      reviewed: ((j['reviewed'] as List<dynamic>? ?? const [])
+          .map((e) => e as String)
+          .toSet()),
+      lastLifecycleDay: j['lastLifecycleDay'] as String? ?? '',
     );
   }
 }
@@ -193,6 +220,13 @@ class AppData {
 /// Tutte le letture derivate stanno qui: nessuna schermata ricalcola a
 /// modo suo, e la regola del prodotto vive in un posto solo.
 extension AppStats on AppData {
+  /// C'e' la giornata di ieri da rivedere (non ancora rivista)?
+  bool get reviewAvailable {
+    final y = Dates.addDays(Dates.today(), -1);
+    if (reviewed.contains(Dates.key(y))) return false;
+    return tasksFor(y).isNotEmpty;
+  }
+
   Task? taskById(String id) {
     for (final t in tasks) {
       if (t.id == id) return t;
@@ -226,8 +260,9 @@ extension AppStats on AppData {
     return ids.map(taskById).whereType<Task>().toList(growable: false);
   }
 
-  List<Task> tasksFor(DateTime day) =>
-      tasksInScope().where((t) => t.activeOn(day)).toList(growable: false);
+  List<Task> tasksFor(DateTime day) => tasksInScope()
+      .where((t) => !t.archived && t.activeOn(day))
+      .toList(growable: false);
 
   double valueOf(Task task, DateTime day) => log[Dates.key(day)]?[task.id] ?? 0;
 
