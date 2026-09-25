@@ -108,6 +108,42 @@ class NotificationService {
   Future<void> sendTest() =>
       _plugin.show(999000, 'WAY — test', 'Se la vedi, le notifiche funzionano.', _details);
 
+  /// Notifica PIANIFICATA (coda vera, non show immediato) tra 1 minuto:
+  /// testa il percorso in background e l'affidabilità dello scheduling.
+  Future<void> sendDelayedTest() async {
+    final when = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
+    try {
+      await _plugin.zonedSchedule(
+        999001,
+        'WAY — test tra 1 minuto',
+        'Se la vedi, le notifiche programmate in background funzionano.',
+        when,
+        _details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      await _plugin.zonedSchedule(
+        999001,
+        'WAY — test tra 1 minuto',
+        'Pianificata in modalità inesatta (manca il permesso sveglie esatte).',
+        when,
+        _details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    }
+  }
+
+  /// Le "sveglie esatte" sono concesse? (causa n.1 delle notifiche che non partono)
+  Future<bool> canExact() async {
+    final a = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return (await a?.canScheduleExactNotifications()) ?? false;
+  }
+
   Future<int> pendingCount() async =>
       (await _plugin.pendingNotificationRequests()).length;
 }

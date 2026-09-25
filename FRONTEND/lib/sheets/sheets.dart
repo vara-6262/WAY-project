@@ -6,7 +6,6 @@ import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../screens/place_wizard.dart';
-import '../services/notifications.dart';
 import '../state/providers.dart';
 import '../theme/way_colors.dart';
 import '../theme/way_theme.dart';
@@ -882,6 +881,21 @@ Future<void> showProfileSheet(BuildContext context, WidgetRef ref) async {
                 await n.scheduleFor(ref2.read(appProvider));
                 final count = await n.pendingCount();
                 showToast(context, 'Promemoria programmati: $count');
+              },
+            ),
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'Notifica tra 1 minuto (test background)',
+              onPressed: () async {
+                final n = ref2.read(notificationsProvider);
+                await n.sendDelayedTest();
+                final exact = await n.canExact();
+                showToast(
+                  context,
+                  exact
+                      ? 'Programmata: arriva tra 1 minuto, anche in background.'
+                      : 'Programmata inesatta: abilita "Sveglie e promemoria" nelle impostazioni dell app.',
+                );
               },
             ),
             const SizedBox(height: 18),

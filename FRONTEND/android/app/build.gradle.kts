@@ -11,12 +11,9 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // ABILITA IL DESUGARING PER LE API CORE MODERNE
-        isCoreLibraryDesugaringEnabled = true
-
-        // Imposta la compatibilità Java richiesta a Java 8
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -32,9 +29,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        
-        // CONSIGLIATO: Abilita il multidex se riscontri l'errore del limite delle 64k funzioni
-        multiDexEnabled = true
     }
 
     buildTypes {
@@ -46,11 +40,10 @@ android {
     }
 }
 
-flutter {
-    source = "../.."
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
-dependencies {
-    // IMPORTA LA LIBRERIA DI DESUGARING DI GOOGLE
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+flutter {
+    source = "../.."
 }

@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'services/notifications.dart';
 import 'state/providers.dart';
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([
