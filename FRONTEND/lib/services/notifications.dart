@@ -18,6 +18,7 @@ class Reminder {
 class NotificationService {
   final _plugin = FlutterLocalNotificationsPlugin();
 
+  // Specifichiamo l'icona della notifica qui tramite il campo `icon`
   static const _details = NotificationDetails(
     android: AndroidNotificationDetails(
       'way_reminders',
@@ -25,6 +26,7 @@ class NotificationService {
       channelDescription: 'Disponibilità e scadenze delle task',
       importance: Importance.high,
       priority: Priority.high,
+      icon: 'notification_icon', // Nome del file in res/drawable (senza estensione .png)
     ),
   );
 
@@ -35,8 +37,11 @@ class NotificationService {
     } catch (_) {
       tz.setLocalLocation(tz.getLocation('UTC'));
     }
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    // Usa la nuova icona sia per l'inizializzazione che come fallback
+    const android = AndroidInitializationSettings('notification_icon');
     await _plugin.initialize(const InitializationSettings(android: android));
+
     final a = _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await a?.requestNotificationsPermission();
@@ -55,10 +60,8 @@ class NotificationService {
     final tasks = data.tasksInScope();
     final weeklyDone = <String>{};
 
-    // Raggruppa per istante: se piu' task condividono lo stesso momento,
-    // poi le uniamo in una sola notifica.
-    final avail = <DateTime, List<String>>{}; // inizio finestra: "e' il momento"
-    final deadline = <DateTime, List<String>>{}; // fine: "scade tra 30 min"
+    final avail = <DateTime, List<String>>{}; 
+    final deadline = <DateTime, List<String>>{}; 
 
     for (var d = 0; d < horizon; d++) {
       final day = Dates.addDays(Dates.today(), d);
@@ -66,7 +69,7 @@ class NotificationService {
       for (final t in tasks) {
         if (!t.days.contains(wd)) continue;
         if (t.period == DomainPeriod.weekly) {
-          final wk = '${t.id}|${Dates.key(Dates.mondayOf(day))}';
+          final wk = '${t.id}\vert{}${Dates.key(Dates.mondayOf(day))}';
           if (weeklyDone.contains(wk)) continue;
           weeklyDone.add(wk);
         }
@@ -135,9 +138,6 @@ class NotificationService {
   Future<void> sendTest() =>
       _plugin.show(999000, 'WAY — test', 'Se la vedi, le notifiche funzionano.', _details);
 
-  /// Notifica PIANIFICATA (coda vera, non show immediato) tra 1 minuto:
-  /// testa il percorso in background e l'affidabilità dello scheduling.
-  /// Programma una notifica tra 1 minuto e restituisce una diagnostica leggibile.
   Future<String> sendDelayedTest() async {
     final exact = await canExact();
     final when = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
@@ -168,14 +168,12 @@ class NotificationService {
         'In coda: $pending';
   }
 
-  /// Apre le impostazioni per concedere le sveglie esatte (Android 12+).
   Future<void> requestExact() async {
     final a = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     await a?.requestExactAlarmsPermission();
   }
 
-  /// Le "sveglie esatte" sono concesse? (causa n.1 delle notifiche che non partono)
   Future<bool> canExact() async {
     final a = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
