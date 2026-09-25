@@ -51,10 +51,15 @@ class NotificationService {
 
   /// Promemoria futuri per i prossimi [horizon] giorni, ordinati.
   List<Reminder> reminders(AppData data, {int horizon = 7}) {
-    final out = <Reminder>[];
     final now = DateTime.now();
     final tasks = data.tasksInScope();
     final weeklyDone = <String>{};
+
+    // Raggruppa per istante: se piu' task condividono lo stesso momento,
+    // poi le uniamo in una sola notifica.
+    final avail = <DateTime, List<String>>{}; // inizio finestra: "e' il momento"
+    final deadline = <DateTime, List<String>>{}; // fine: "scade tra 30 min"
+
     for (var d = 0; d < horizon; d++) {
       final day = Dates.addDays(Dates.today(), d);
       final wd = Dates.weekdayIndex(day);
@@ -65,13 +70,35 @@ class NotificationService {
           if (weeklyDone.contains(wk)) continue;
           weeklyDone.add(wk);
         }
-        final avail = DateTime(day.year, day.month, day.day, t.start, 0);
-        if (avail.isAfter(now)) out.add(Reminder(avail, '${t.name}: è il momento'));
+        final a = DateTime(day.year, day.month, day.day, t.start, 0);
+        if (a.isAfter(now)) (avail[a] ??= <String>[]).add(t.name);
         final warnH = (t.end - 1).clamp(0, 23);
-        final warn = DateTime(day.year, day.month, day.day, warnH, 30);
-        if (warn.isAfter(now)) out.add(Reminder(warn, '${t.name}: scade tra 30 minuti'));
+        final w = DateTime(day.year, day.month, day.day, warnH, 30);
+        if (w.isAfter(now)) (deadline[w] ??= <String>[]).add(t.name);
       }
     }
+
+    final out = <Reminder>[];
+    void emit(
+      Map<DateTime, List<String>> groups,
+      String Function(String name) single,
+      String Function(int count) many,
+    ) {
+      groups.forEach((when, names) {
+        if (names.length > 2) {
+          out.add(Reminder(when, many(names.length)));
+        } else {
+          for (final n in names) {
+            out.add(Reminder(when, single(n)));
+          }
+        }
+      });
+    }
+
+    emit(avail, (n) => '$n: è il momento', (c) => 'Hai $c task da iniziare');
+    emit(deadline, (n) => '$n: scade tra 30 minuti',
+        (c) => '$c task in scadenza tra 30 minuti');
+
     out.sort((a, b) => a.when.compareTo(b.when));
     return out;
   }
@@ -110,31 +137,42 @@ class NotificationService {
 
   /// Notifica PIANIFICATA (coda vera, non show immediato) tra 1 minuto:
   /// testa il percorso in background e l'affidabilità dello scheduling.
-  Future<void> sendDelayedTest() async {
+  /// Programma una notifica tra 1 minuto e restituisce una diagnostica leggibile.
+  Future<String> sendDelayedTest() async {
+    final exact = await canExact();
     final when = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
+    String mode;
     try {
       await _plugin.zonedSchedule(
         999001,
         'WAY — test tra 1 minuto',
-        'Se la vedi, le notifiche programmate in background funzionano.',
+        'Se la vedi, le notifiche programmate funzionano.',
         when,
         _details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: exact
+            ? AndroidScheduleMode.exactAllowWhileIdle
+            : AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
-    } catch (_) {
-      await _plugin.zonedSchedule(
-        999001,
-        'WAY — test tra 1 minuto',
-        'Pianificata in modalità inesatta (manca il permesso sveglie esatte).',
-        when,
-        _details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
+      mode = exact ? 'esatta' : 'INESATTA (Android la ritarda)';
+    } catch (e) {
+      mode = 'ERRORE: $e';
     }
+    final pending = await pendingCount();
+    final hh = when.hour.toString().padLeft(2, '0');
+    final mm = when.minute.toString().padLeft(2, '0');
+    return 'Fuso: ${tz.local.name}\n'
+        'Programmata per: $hh:$mm\n'
+        'Modalità: $mode\n'
+        'In coda: $pending';
+  }
+
+  /// Apre le impostazioni per concedere le sveglie esatte (Android 12+).
+  Future<void> requestExact() async {
+    final a = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await a?.requestExactAlarmsPermission();
   }
 
   /// Le "sveglie esatte" sono concesse? (causa n.1 delle notifiche che non partono)

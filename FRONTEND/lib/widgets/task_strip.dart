@@ -42,7 +42,7 @@ class TaskStrip extends StatelessWidget {
         boxShadow: elevated
             ? [
                 BoxShadow(
-                  color: c.ink.withValues(alpha: 0.22),
+                  color: c.ink.withOpacity(0.22),
                   blurRadius: 26,
                   offset: const Offset(0, 10),
                 ),

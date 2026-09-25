@@ -6,6 +6,7 @@ import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../screens/place_wizard.dart';
+import '../services/notifications.dart';
 import '../state/providers.dart';
 import '../theme/way_colors.dart';
 import '../theme/way_theme.dart';
@@ -885,16 +886,26 @@ Future<void> showProfileSheet(BuildContext context, WidgetRef ref) async {
             ),
             const SizedBox(height: 8),
             GhostButton(
-              label: 'Notifica tra 1 minuto (test background)',
+              label: 'Notifica tra 1 minuto (test)',
               onPressed: () async {
                 final n = ref2.read(notificationsProvider);
-                await n.sendDelayedTest();
-                final exact = await n.canExact();
-                showToast(
-                  context,
-                  exact
-                      ? 'Programmata: arriva tra 1 minuto, anche in background.'
-                      : 'Programmata inesatta: abilita "Sveglie e promemoria" nelle impostazioni dell app.',
+                if (!await n.canExact()) {
+                  await n.requestExact(); // apre le impostazioni sveglie esatte
+                }
+                final diag = await n.sendDelayedTest();
+                if (!context.mounted) return;
+                showDialog<void>(
+                  context: context,
+                  builder: (dctx) => AlertDialog(
+                    title: const Text('Test notifica programmata'),
+                    content: Text(diag),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dctx).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),

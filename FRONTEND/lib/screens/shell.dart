@@ -7,6 +7,7 @@ import '../fx/fx_overlays.dart';
 import '../fx/reward_layer.dart';
 import '../onboarding/onboarding_flow.dart';
 import '../models/app_data.dart';
+import '../services/notifications.dart';
 import '../state/providers.dart';
 import '../theme/way_theme.dart';
 import 'home_screen.dart';
@@ -128,7 +129,7 @@ class _TabBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.38),
+                color: Colors.black.withOpacity(0.38),
                 blurRadius: 30,
                 offset: const Offset(0, 14),
               ),

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../data/dates.dart';
 import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
@@ -376,7 +378,7 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ChoiceCard(
-          leading: const _CurveThumb(exponential: false),
+          leading: _CurveThumb(exponential: false),
           title: 'Sì, vale sempre uguale',
           body: 'La decima uscita con gli amici costa quanto la prima.',
           selected: _reward == RewardCurve.linear,
@@ -386,7 +388,7 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
           },
         ),
         ChoiceCard(
-          leading: const _CurveThumb(exponential: true),
+          leading: _CurveThumb(exponential: true),
           title: 'No, costa sempre di più',
           body: 'La quinta ora di studio pesa più della prima.',
           selected: _reward == RewardCurve.exponential,
@@ -472,7 +474,7 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
             color: colors.bg,
-            border: Border.all(color: colors.fg.withValues(alpha: 0.26)),
+            border: Border.all(color: colors.fg.withOpacity(0.26)),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(

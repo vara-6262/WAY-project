@@ -7,6 +7,7 @@ import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../fx/anchors.dart';
+import '../models/app_data.dart' show OnboardingStage;
 import '../sheets/sheets.dart';
 import '../state/providers.dart';
 import '../theme/way_theme.dart';
@@ -130,7 +131,7 @@ class _PlaceHub extends ConsumerWidget {
           ),
           clipBehavior: Clip.antiAlias,
           child: CustomPaint(
-            painter: _ContourPainter(color: c.accentSoft.withValues(alpha: 0.5)),
+            painter: _ContourPainter(color: c.accentSoft.withOpacity(0.5)),
             foregroundPainter: _HubBorderPainter(
               color: hot ? c.accent : c.accentSoft,
               solid: hot,
@@ -335,7 +336,7 @@ class _PlaceCard extends StatelessWidget {
         boxShadow: elevated
             ? [
                 BoxShadow(
-                  color: c.ink.withValues(alpha: 0.22),
+                  color: c.ink.withOpacity(0.22),
                   blurRadius: 26,
                   offset: const Offset(0, 10),
                 ),
