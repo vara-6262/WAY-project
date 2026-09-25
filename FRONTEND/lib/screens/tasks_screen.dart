@@ -5,7 +5,6 @@ import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../fx/anchors.dart';
-import '../models/app_data.dart' show OnboardingStage;
 import '../sheets/sheets.dart';
 import 'first_run_wizard.dart';
 import '../state/providers.dart';
@@ -314,7 +313,7 @@ class _ChipBody extends StatelessWidget {
         boxShadow: elevated
             ? [
                 BoxShadow(
-                  color: c.ink.withOpacity(0.2),
+                  color: c.ink.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),

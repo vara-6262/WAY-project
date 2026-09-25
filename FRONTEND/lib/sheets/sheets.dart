@@ -422,9 +422,16 @@ Future<void> showTaskDetailSheet(
             ],
           ],
         ),
+        const SizedBox(height: 16),
+        Text('ORARIO', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+        const SizedBox(height: 6),
+        Text(
+          '${task.start.toString().padLeft(2, '0')}:00 – ${task.end.toString().padLeft(2, '0')}:00 · ${task.period.label}',
+          style: WayFonts.ui(size: 12.5, color: c.inkSoft),
+        ),
         if (task.kind == TaskKind.measure) ...[
           const SizedBox(height: 16),
-          Text('SOGLIA E TARGET', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+          Text('TARGET', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
           const SizedBox(height: 6),
           Text(
             'Obiettivo ${_num(task.target)}',

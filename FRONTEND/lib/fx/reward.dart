@@ -1,8 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui';
-
 import 'package:flutter/services.dart';
-
 import '../models/models.dart';
 import 'fx_controller.dart';
 

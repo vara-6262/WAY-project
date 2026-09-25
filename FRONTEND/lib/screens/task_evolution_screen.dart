@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:way/fx/fx_controller.dart';
 
+import '../fx/reward.dart';
 import '../models/models.dart';
 import '../state/providers.dart';
 import '../theme/way_theme.dart';
@@ -180,7 +182,7 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                     onStart: (h) => setState(() => _start = h),
                     onEnd: (h) => setState(() => _end = h),
                   ),
-                  if (!upgrade) ...[
+                  if (!upgrade && t.level > 0) ...[
                     const SizedBox(height: 14),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -215,6 +217,7 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                         child: PrimaryButton(
                           label: 'Sali di livello',
                           onPressed: () {
+                            final from = t.level;
                             ref.read(appProvider.notifier).applyUpgrade(
                                   t,
                                   requirements: _reqTexts,
@@ -225,6 +228,13 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                                   target: showTarget ? _targetVal : null,
                                   toNumber: _toNumber,
                                 );
+                            final updated = ref.read(appProvider).tasks.firstWhere(
+                                  (x) => x.id == t.id,
+                                  orElse: () => t,
+                                );
+                            final size = MediaQuery.of(context).size;
+                            Reward.levelUp(ref.read(fxProvider), updated, from,
+                                Offset(size.width / 2, size.height / 2));
                             Navigator.of(context).maybePop();
                           },
                         ),

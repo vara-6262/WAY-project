@@ -98,7 +98,7 @@ class WayTheme {
         activeTrackColor: c.accent,
         inactiveTrackColor: c.surface3,
         thumbColor: c.accent,
-        overlayColor: c.accent.withOpacity(0.12),
+        overlayColor: c.accent.withValues(alpha: 0.12),
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
       ),

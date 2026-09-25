@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:way/models/models.dart';
-
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
 

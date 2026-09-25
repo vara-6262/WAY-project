@@ -67,9 +67,15 @@ class HomeScreen extends ConsumerWidget {
     final c = context.c;
     final data = ref.watch(appProvider);
     final today = Dates.today();
-    final tasks = data.tasksFor(today);
+    final tasks = data.visibleToday();
+    final scheduled = data.tasksFor(today);
+    final nowM = DateTime.now().hour * 60 + DateTime.now().minute;
+    final outWindow = scheduled
+        .where((t) => nowM < t.start * 60 || nowM >= t.end * 60)
+        .length;
     final score = data.dayScore(today) ?? 0;
-    final done = tasks.where((t) => data.percentOf(t, today) >= 100).length;
+    final done =
+        scheduled.where((t) => data.percentOf(t, today) >= 100).length;
     final place = data.activePlace;
     final candidate = data.levelUpCandidate();
     final hour = DateTime.now().hour;
@@ -125,7 +131,7 @@ class HomeScreen extends ConsumerWidget {
         _TodayCard(
           score: score,
           done: done,
-          total: tasks.length,
+          total: scheduled.length,
           place: place,
           onOpenPlaces: onOpenPlaces,
         ),
@@ -148,29 +154,66 @@ class HomeScreen extends ConsumerWidget {
           )
         else
           for (final task in tasks)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (data.upgradeReady(task) ||
-                      data.reconfigReady(task) ||
-                      data.abstinenceConcluded(task))
-                    _EvolveBadge(task: task),
-                  switch (task.kind) {
-                    TaskKind.maintenance =>
-                      _MaintenanceRow(task: task, day: today),
-                    TaskKind.abstinence => _AbstinenceRow(task: task, day: today),
-                    _ => _ExecutionRow(
-                        key: ValueKey(task.id),
-                        task: task,
-                        day: today,
-                        onCommit: (v) => _commit(ref, task, v),
-                      ),
-                  },
-                ],
+            Dismissible(
+              key: ValueKey('hide-${task.id}'),
+              direction: DismissDirection.horizontal,
+              onDismissed: (_) =>
+                  ref.read(appProvider.notifier).hideTaskToday(task.id),
+              background: _hideBackground(context, Alignment.centerLeft),
+              secondaryBackground:
+                  _hideBackground(context, Alignment.centerRight),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: switch (task.kind) {
+                  TaskKind.maintenance =>
+                    _MaintenanceRow(task: task, day: today),
+                  TaskKind.abstinence =>
+                    _AbstinenceRow(task: task, day: today),
+                  _ => _ExecutionRow(
+                      key: ValueKey(task.id),
+                      task: task,
+                      day: today,
+                      onCommit: (v) => _commit(ref, task, v),
+                    ),
+                },
               ),
             ),
+        if (data.hiddenDay == Dates.key(today))
+          Builder(builder: (context) {
+            final n = data
+                .tasksFor(today)
+                .where((t) => data.hidden.contains(t.id))
+                .length;
+            if (n == 0) return const SizedBox.shrink();
+            return GestureDetector(
+              onTap: () => ref.read(appProvider.notifier).showHiddenToday(),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2, bottom: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.visibility_outlined, size: 14, color: c.inkFaint),
+                    const SizedBox(width: 6),
+                    Text('Mostra $n nascoste',
+                        style: WayFonts.mono(size: 10.5, color: c.inkFaint)),
+                  ],
+                ),
+              ),
+            );
+          }),
+        if (outWindow > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.schedule, size: 13, color: c.inkFaint),
+                const SizedBox(width: 6),
+                Text('$outWindow fuori dalla fascia oraria',
+                    style: WayFonts.mono(size: 10.5, color: c.inkFaint)),
+              ],
+            ),
+          ),
         const SizedBox(height: 22),
         const SectionLabel('Andamento'),
         _TrendSection(data: data),
@@ -462,6 +505,7 @@ class _MaintenanceRow extends ConsumerWidget {
     final mask = data.valueOf(task, day).toInt();
     final compromised = mask != 0;
     final colors = difficultyColors(context, task.difficulty);
+    final evolve = evolveControl(context, ref, task, data);
     bool broken(int i) => (mask & (1 << i)) != 0;
 
     return Container(
@@ -486,12 +530,16 @@ class _MaintenanceRow extends ConsumerWidget {
               Text(task.name, maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: WayFonts.ui(size: 13.5, weight: FontWeight.w600, color: c.ink)),
               const SizedBox(height: 4),
-              Text(compromised ? 'Compromessa oggi' : 'Intatta · LV${task.level}',
+              Text(
+                  compromised
+                      ? 'Compromessa oggi'
+                      : 'Intatta · LV${task.level} · streak ${data.derivedStreak(task)}',
                   style: WayFonts.mono(size: 10.5, color: compromised ? c.hard : c.easy)),
             ]),
           ),
-          Icon(compromised ? Icons.cancel : Icons.verified,
-              color: compromised ? c.hard : c.easy, size: 22),
+          evolve ??
+              Icon(compromised ? Icons.cancel : Icons.verified,
+                  color: compromised ? c.hard : c.easy, size: 22),
         ]),
         if (task.criteria.isNotEmpty) ...[
           const SizedBox(height: 10),
@@ -539,6 +587,7 @@ class _AbstinenceRow extends ConsumerWidget {
     final relapsed = data.valueOf(task, day) != 0;
     final streak = data.derivedStreak(task);
     final colors = difficultyColors(context, task.difficulty);
+    final evolve = evolveControl(context, ref, task, data);
 
     return Container(
       padding: const EdgeInsets.all(13),
@@ -565,20 +614,22 @@ class _AbstinenceRow extends ConsumerWidget {
                 style: WayFonts.mono(size: 10.5, color: relapsed ? c.hard : c.easy)),
           ]),
         ),
-        GestureDetector(
-          onTap: () => ref.read(appProvider.notifier).toggleAbstinence(task, day: day),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: relapsed ? c.surface : c.hardTint,
-              border: Border.all(color: relapsed ? c.line : c.hard),
-              borderRadius: BorderRadius.circular(10),
+        evolve ??
+            GestureDetector(
+              onTap: () =>
+                  ref.read(appProvider.notifier).toggleAbstinence(task, day: day),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: relapsed ? c.surface : c.hardTint,
+                  border: Border.all(color: relapsed ? c.line : c.hard),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(relapsed ? 'Annulla' : 'Ricaduta',
+                    style: WayFonts.mono(size: 11, weight: FontWeight.w700,
+                        color: relapsed ? c.inkSoft : c.hard)),
+              ),
             ),
-            child: Text(relapsed ? 'Annulla' : 'Ricaduta',
-                style: WayFonts.mono(size: 11, weight: FontWeight.w700,
-                    color: relapsed ? c.inkSoft : c.hard)),
-          ),
-        ),
       ]),
     );
   }
@@ -605,6 +656,7 @@ class _ExecutionRow extends ConsumerWidget {
     final percent = data.percentOf(task, day);
     final complete = percent >= 100;
     final step = task.target >= 20 ? 5.0 : (task.target >= 8 ? 1.0 : 0.5);
+    final evolve = evolveControl(context, ref, task, data);
 
     return Container(
       key: taskAnchorKey(task.id),
@@ -657,6 +709,9 @@ class _ExecutionRow extends ConsumerWidget {
                       : (complete ? 'Fatto' : 'Da fare'),
                   style: WayFonts.mono(size: 10.5, color: c.inkFaint),
                 ),
+                const SizedBox(height: 2),
+                Text('${typeLabel(task)} · streak ${data.derivedStreak(task)}',
+                    style: WayFonts.mono(size: 9, color: c.inkFaint)),
                 if (task.kind == TaskKind.measure) ...[
                   const SizedBox(height: 7),
                   MeasureBar(
@@ -668,7 +723,9 @@ class _ExecutionRow extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 10),
-          if (task.kind == TaskKind.complete)
+          if (evolve != null)
+            evolve
+          else if (task.kind == TaskKind.complete)
             CheckButton(
               on: value > 0,
               onTap: () => onCommit(value > 0 ? 0 : 1),
@@ -796,4 +853,107 @@ class _TrendSection extends ConsumerWidget {
       ],
     );
   }
+}
+
+
+String typeLabel(Task t) => switch (t.kind) {
+      TaskKind.complete => 'Completa',
+      TaskKind.measure => 'Misura',
+      TaskKind.maintenance => 'Mantenimento',
+      TaskKind.abstinence => 'Astinenza',
+    };
+
+/// Pulsante d'azione (Level up / Rivedi / Archivia) da mostrare nella card al
+/// posto dei controlli, quando la task e' in stato di evoluzione. null altrimenti.
+Widget? evolveControl(
+    BuildContext context, WidgetRef ref, Task task, AppData data) {
+  final c = context.c;
+  if (data.abstinenceConcluded(task)) {
+    return _EvolvePill(
+      label: 'Archivia',
+      icon: Icons.emoji_events_outlined,
+      color: c.easy,
+      onTap: () => ref.read(appProvider.notifier).archiveTask(task),
+    );
+  }
+  if (data.reconfigReady(task)) {
+    return _EvolvePill(
+      label: 'Rivedi',
+      icon: Icons.build_outlined,
+      color: c.hard,
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) =>
+              TaskEvolutionScreen(taskId: task.id, mode: 'reconfig'))),
+    );
+  }
+  if (data.upgradeReady(task)) {
+    return _EvolvePill(
+      label: 'Level up',
+      icon: Icons.trending_up,
+      color: c.accent,
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) =>
+              TaskEvolutionScreen(taskId: task.id, mode: 'upgrade'))),
+    );
+  }
+  return null;
+}
+
+class _EvolvePill extends StatelessWidget {
+  const _EvolvePill({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.14),
+          border: Border.all(color: color.withValues(alpha: 0.55)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 6),
+          Text(label,
+              style: WayFonts.mono(size: 11, weight: FontWeight.w700, color: color)),
+        ]),
+      ),
+    );
+  }
+}
+
+
+/// Sfondo mostrato durante lo swipe di una card per nasconderla.
+Widget _hideBackground(BuildContext context, Alignment align) {
+  final c = context.c;
+  return Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 22),
+    alignment: align,
+    decoration: BoxDecoration(
+      color: c.surface3,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.visibility_off_outlined, size: 18, color: c.inkFaint),
+        const SizedBox(width: 6),
+        Text('Nascondi',
+            style: WayFonts.mono(
+                size: 11, weight: FontWeight.w700, color: c.inkFaint)),
+      ],
+    ),
+  );
 }

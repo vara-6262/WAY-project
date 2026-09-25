@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../data/dates.dart';
 import '../models/app_data.dart';
+import '../models/models.dart';
 
 class Reminder {
   const Reminder(this.when, this.text);
@@ -40,6 +41,12 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await a?.requestNotificationsPermission();
     await a?.requestExactAlarmsPermission();
+    await a?.createNotificationChannel(const AndroidNotificationChannel(
+      'way_reminders',
+      'Promemoria WAY',
+      description: 'Disponibilità e scadenze delle task',
+      importance: Importance.high,
+    ));
   }
 
   /// Promemoria futuri per i prossimi [horizon] giorni, ordinati.
@@ -47,11 +54,17 @@ class NotificationService {
     final out = <Reminder>[];
     final now = DateTime.now();
     final tasks = data.tasksInScope();
+    final weeklyDone = <String>{};
     for (var d = 0; d < horizon; d++) {
       final day = Dates.addDays(Dates.today(), d);
       final wd = Dates.weekdayIndex(day);
       for (final t in tasks) {
         if (!t.days.contains(wd)) continue;
+        if (t.period == DomainPeriod.weekly) {
+          final wk = '${t.id}|${Dates.key(Dates.mondayOf(day))}';
+          if (weeklyDone.contains(wk)) continue;
+          weeklyDone.add(wk);
+        }
         final avail = DateTime(day.year, day.month, day.day, t.start, 0);
         if (avail.isAfter(now)) out.add(Reminder(avail, '${t.name}: è il momento'));
         final warnH = (t.end - 1).clamp(0, 23);

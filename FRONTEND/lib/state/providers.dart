@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/dates.dart';
 import '../data/seed.dart';
+import '../data/dates.dart';
 import '../models/app_data.dart';
 import '../models/sabus_scoring.dart';
 import '../theme/way_colors.dart';
@@ -122,14 +123,8 @@ class AppController extends Notifier<AppData> {
         for (final e in d.log.entries) e.key: Map<String, double>.from(e.value),
       };
 
-  double _basePoints(AppData d, String dateKey) {
-    final day = Dates.parse(dateKey);
-    var sum = 0.0;
-    for (final t in d.tasksFor(day)) {
-      sum += d.taskPoints(t, day);
-    }
-    return sum;
-  }
+  double _basePoints(AppData d, String dateKey) =>
+      d.dayPoints(Dates.parse(dateKey));
 
   /// Consolida i giorni passati non ancora sigillati (ledger dai valori del log).
   AppData _consolidate(AppData d) {
@@ -153,13 +148,28 @@ class AppController extends Notifier<AppData> {
       final day = Dates.parse(k);
       for (final t in d.tasks) {
         if (t.kind == TaskKind.abstinence || t.archived) continue;
-        if (!t.activeOn(day)) continue;
-        if (d.taskCounts(t, day)) {
-          succ[t.id] = (succ[t.id] ?? 0) + 1;
-          fail[t.id] = 0;
+        if (!d.existsOn(t, day)) continue; // non esisteva ancora
+        if (t.period == DomainPeriod.weekly) {
+          // Settimanale: valutata una volta, alla chiusura settimana (domenica).
+          if (day.weekday != DateTime.sunday) continue;
+          final monday = Dates.mondayOf(day);
+          if (!d.weekHasScheduled(t, monday)) continue;
+          if (d.weekCounted(t, monday)) {
+            succ[t.id] = (succ[t.id] ?? 0) + 1;
+            fail[t.id] = 0;
+          } else {
+            fail[t.id] = (fail[t.id] ?? 0) + 1;
+            succ[t.id] = 0;
+          }
         } else {
-          fail[t.id] = (fail[t.id] ?? 0) + 1;
-          succ[t.id] = 0;
+          if (!t.activeOn(day)) continue;
+          if (d.taskCounts(t, day)) {
+            succ[t.id] = (succ[t.id] ?? 0) + 1;
+            fail[t.id] = 0;
+          } else {
+            fail[t.id] = (fail[t.id] ?? 0) + 1;
+            succ[t.id] = 0;
+          }
         }
       }
       last = k;
@@ -241,6 +251,17 @@ class AppController extends Notifier<AppData> {
 
   void archiveTask(Task t) => updateTask(t.copyWith(archived: true));
 
+  /// Nasconde una task dalla Home per il giorno corrente (swipe).
+  void hideTaskToday(String taskId) {
+    final today = Dates.key(Dates.today());
+    final list = state.hiddenDay == today ? [...state.hidden] : <String>[];
+    if (!list.contains(taskId)) list.add(taskId);
+    _write(state.copyWith(hiddenDay: today, hidden: list));
+  }
+
+  void showHiddenToday() => _write(
+      state.copyWith(hiddenDay: Dates.key(Dates.today()), hidden: const []));
+
   // ---- Review di ieri ----
   /// Applica la review: delta dei punti DIMEZZATO; lo streak si puo' salvare
   /// (gli "add" entrano nel log) ma non si spezza (le rimozioni non lo toccano).
@@ -293,7 +314,13 @@ class AppController extends Notifier<AppData> {
 
   // --- Task -----------------------------------------------------------------
 
-  void addTask(Task task) => _write(state.copyWith(tasks: [...state.tasks, task]));
+  void addTask(Task task) => _write(state.copyWith(tasks: [
+        ...state.tasks,
+        task.copyWith(
+          streakSince: task.streakSince ?? Dates.today(),
+          createdOn: task.createdOn ?? Dates.today(),
+        ),
+      ]));
 
   void updateTask(Task task) => _write(
         state.copyWith(
