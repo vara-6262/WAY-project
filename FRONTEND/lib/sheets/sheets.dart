@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/dates.dart';
@@ -907,6 +908,28 @@ Future<void> showProfileSheet(BuildContext context, WidgetRef ref) async {
                     ],
                   ),
                 );
+              },
+            ),
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'Esporta backup negli appunti',
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(
+                    text: ref2.read(appProvider.notifier).exportState()));
+                showToast(context,
+                    'Backup copiato — incollalo in un file per salvarlo');
+              },
+            ),
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'Importa backup dagli appunti',
+              onPressed: () async {
+                final d = await Clipboard.getData('text/plain');
+                final ok = d?.text != null &&
+                    ref2.read(appProvider.notifier).importState(d!.text!);
+                if (!context.mounted) return;
+                showToast(context,
+                    ok ? 'Backup ripristinato' : 'Backup non valido');
               },
             ),
             const SizedBox(height: 18),

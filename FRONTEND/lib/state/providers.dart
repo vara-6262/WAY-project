@@ -118,6 +118,22 @@ class AppController extends Notifier<AppData> {
 
   void resetCurrentMode() => _write(Bootstrap.freshData(_mode));
 
+  /// Esporta lo stato corrente come JSON (backup manuale).
+  String exportState() =>
+      jsonEncode({'schema': 1, 'mode': _mode.name, 'data': state.toJson()});
+
+  /// Importa uno stato da JSON. Ritorna false se il backup non e' valido.
+  bool importState(String raw) {
+    try {
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      final data = AppData.fromJson(j['data'] as Map<String, dynamic>);
+      _write(data);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ---- Rollover / snapshot ----
   Map<String, Map<String, double>> _deepLog(AppData d) => {
         for (final e in d.log.entries) e.key: Map<String, double>.from(e.value),

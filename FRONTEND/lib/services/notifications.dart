@@ -18,7 +18,6 @@ class Reminder {
 class NotificationService {
   final _plugin = FlutterLocalNotificationsPlugin();
 
-  // Specifichiamo l'icona della notifica qui tramite il campo `icon`
   static const _details = NotificationDetails(
     android: AndroidNotificationDetails(
       'way_reminders',
@@ -26,7 +25,6 @@ class NotificationService {
       channelDescription: 'Disponibilità e scadenze delle task',
       importance: Importance.high,
       priority: Priority.high,
-      icon: 'notification_icon', // Nome del file in res/drawable (senza estensione .png)
     ),
   );
 
@@ -37,11 +35,8 @@ class NotificationService {
     } catch (_) {
       tz.setLocalLocation(tz.getLocation('UTC'));
     }
-
-    // Usa la nuova icona sia per l'inizializzazione che come fallback
-    const android = AndroidInitializationSettings('notification_icon');
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     await _plugin.initialize(const InitializationSettings(android: android));
-
     final a = _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await a?.requestNotificationsPermission();
@@ -57,50 +52,69 @@ class NotificationService {
   /// Promemoria futuri per i prossimi [horizon] giorni, ordinati.
   List<Reminder> reminders(AppData data, {int horizon = 7}) {
     final now = DateTime.now();
+    final todayKey = Dates.key(Dates.today());
     final tasks = data.tasksInScope();
     final weeklyDone = <String>{};
 
-    final avail = <DateTime, List<String>>{}; 
-    final deadline = <DateTime, List<String>>{}; 
+    // Messaggi gia' formattati, raggruppati per istante.
+    final startMsgs = <DateTime, List<String>>{}; // inizio finestra
+    final endMsgs = <DateTime, List<String>>{}; // scadenza (solo complete/measure)
 
     for (var d = 0; d < horizon; d++) {
       final day = Dates.addDays(Dates.today(), d);
       final wd = Dates.weekdayIndex(day);
+      final isToday = Dates.key(day) == todayKey;
       for (final t in tasks) {
         if (!t.days.contains(wd)) continue;
         if (t.period == DomainPeriod.weekly) {
-          final wk = '${t.id}\vert{}${Dates.key(Dates.mondayOf(day))}';
+          final wk = '${t.id}|${Dates.key(Dates.mondayOf(day))}';
           if (weeklyDone.contains(wk)) continue;
           weeklyDone.add(wk);
         }
         final a = DateTime(day.year, day.month, day.day, t.start, 0);
-        if (a.isAfter(now)) (avail[a] ??= <String>[]).add(t.name);
-        final warnH = (t.end - 1).clamp(0, 23);
-        final w = DateTime(day.year, day.month, day.day, warnH, 30);
-        if (w.isAfter(now)) (deadline[w] ??= <String>[]).add(t.name);
+
+        switch (t.kind) {
+          case TaskKind.complete:
+          case TaskKind.measure:
+            // Niente promemoria se la task e' gia' completata oggi.
+            if (isToday && data.percentOf(t, day) >= 100) continue;
+            if (a.isAfter(now)) {
+              (startMsgs[a] ??= <String>[]).add('${t.name}: è il momento');
+            }
+            final warnH = (t.end - 1).clamp(0, 23);
+            final w = DateTime(day.year, day.month, day.day, warnH, 30);
+            if (w.isAfter(now)) {
+              (endMsgs[w] ??= <String>[]).add('${t.name}: scade tra 30 minuti');
+            }
+          case TaskKind.maintenance:
+            // Stato passivo: un solo promemoria gentile, nessuna scadenza.
+            if (a.isAfter(now)) {
+              (startMsgs[a] ??= <String>[]).add('Mantieni: ${t.name}');
+            }
+          case TaskKind.abstinence:
+            if (a.isAfter(now)) {
+              (startMsgs[a] ??= <String>[])
+                  .add('${t.name}: un altro giorno pulito');
+            }
+        }
       }
     }
 
     final out = <Reminder>[];
-    void emit(
-      Map<DateTime, List<String>> groups,
-      String Function(String name) single,
-      String Function(int count) many,
-    ) {
-      groups.forEach((when, names) {
-        if (names.length > 2) {
-          out.add(Reminder(when, many(names.length)));
+    void emit(Map<DateTime, List<String>> groups, String Function(int) many) {
+      groups.forEach((when, msgs) {
+        if (msgs.length > 2) {
+          out.add(Reminder(when, many(msgs.length)));
         } else {
-          for (final n in names) {
-            out.add(Reminder(when, single(n)));
+          for (final m in msgs) {
+            out.add(Reminder(when, m));
           }
         }
       });
     }
 
-    emit(avail, (n) => '$n: è il momento', (c) => 'Hai $c task da iniziare');
-    emit(deadline, (n) => '$n: scade tra 30 minuti',
-        (c) => '$c task in scadenza tra 30 minuti');
+    emit(startMsgs, (c) => 'Hai $c task da seguire oggi');
+    emit(endMsgs, (c) => '$c task in scadenza tra 30 minuti');
 
     out.sort((a, b) => a.when.compareTo(b.when));
     return out;
@@ -138,6 +152,9 @@ class NotificationService {
   Future<void> sendTest() =>
       _plugin.show(999000, 'WAY — test', 'Se la vedi, le notifiche funzionano.', _details);
 
+  /// Notifica PIANIFICATA (coda vera, non show immediato) tra 1 minuto:
+  /// testa il percorso in background e l'affidabilità dello scheduling.
+  /// Programma una notifica tra 1 minuto e restituisce una diagnostica leggibile.
   Future<String> sendDelayedTest() async {
     final exact = await canExact();
     final when = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
@@ -168,12 +185,14 @@ class NotificationService {
         'In coda: $pending';
   }
 
+  /// Apre le impostazioni per concedere le sveglie esatte (Android 12+).
   Future<void> requestExact() async {
     final a = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     await a?.requestExactAlarmsPermission();
   }
 
+  /// Le "sveglie esatte" sono concesse? (causa n.1 delle notifiche che non partono)
   Future<bool> canExact() async {
     final a = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
