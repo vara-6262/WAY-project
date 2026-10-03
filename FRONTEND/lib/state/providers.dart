@@ -489,3 +489,7 @@ class ThemeController extends Notifier<WayColors> {
 final notificationsProvider = Provider<NotificationService>(
   (ref) => throw UnimplementedError('notificationsProvider va sovrascritto in main()'),
 );
+
+/// Filtro selezionato nella Home (sessione, non persistito).
+final homeFilterProvider =
+    StateProvider<HomeFilter>((ref) => HomeFilter.disponibili);

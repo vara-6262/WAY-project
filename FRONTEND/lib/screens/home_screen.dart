@@ -67,17 +67,16 @@ class HomeScreen extends ConsumerWidget {
     final c = context.c;
     final data = ref.watch(appProvider);
     final today = Dates.today();
-    final tasks = data.visibleToday();
+    final filter = ref.watch(homeFilterProvider);
+    final tasks = data.tasksForFilter(filter);
     final scheduled = data.tasksFor(today);
-    final nowM = DateTime.now().hour * 60 + DateTime.now().minute;
-    final outWindow = scheduled
-        .where((t) => nowM < t.start * 60 || nowM >= t.end * 60)
-        .length;
+    final hiddenCount = data.hiddenDay == Dates.key(today)
+        ? scheduled.where((t) => data.hidden.contains(t.id)).length
+        : 0;
     final score = data.dayScore(today) ?? 0;
     final done =
         scheduled.where((t) => data.percentOf(t, today) >= 100).length;
     final place = data.activePlace;
-    final candidate = data.levelUpCandidate();
     final hour = DateTime.now().hour;
     final greeting =
         hour < 12 ? 'Buongiorno' : (hour < 18 ? 'Buon pomeriggio' : 'Buonasera');
@@ -135,6 +134,8 @@ class HomeScreen extends ConsumerWidget {
           place: place,
           onOpenPlaces: onOpenPlaces,
         ),
+        const SizedBox(height: 12),
+        const _ScoreBar(),
         const SizedBox(height: 22),
         if (data.reviewAvailable) ...[
           _ReviewBanner(
@@ -145,12 +146,43 @@ class HomeScreen extends ConsumerWidget {
           const SizedBox(height: 16),
         ],
         const SectionLabel('Esecuzione di oggi'),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Segmented<HomeFilter>(
+                values: HomeFilter.values,
+                labels: const ['Disponibili', 'Mancanti', 'Tutte'],
+                selected: filter,
+                onChanged: (f) =>
+                    ref.read(homeFilterProvider.notifier).state = f,
+              ),
+            ),
+            if (hiddenCount > 0) ...[
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: () =>
+                    ref.read(appProvider.notifier).showHiddenToday(),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.visibility_outlined, size: 15, color: c.inkFaint),
+                  const SizedBox(width: 4),
+                  Text('$hiddenCount',
+                      style: WayFonts.mono(size: 11, color: c.inkFaint)),
+                ]),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 10),
         if (tasks.isEmpty)
-          const EmptyStateBox(
+          EmptyStateBox(
             icon: Icons.checklist_outlined,
-            title: 'Giornata libera',
-            body:
-                'Nessuna task dell\'ambiente attivo cade oggi. È una scelta della configurazione, non un buco.',
+            title: scheduled.isEmpty
+                ? 'Giornata libera'
+                : 'Niente in questa vista',
+            body: scheduled.isEmpty
+                ? 'Oggi non è previsto nulla in questo ambiente.'
+                : 'Cambia filtro in alto per vedere le altre task di oggi.',
           )
         else
           for (final task in tasks)
@@ -164,56 +196,23 @@ class HomeScreen extends ConsumerWidget {
                   _hideBackground(context, Alignment.centerRight),
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: switch (task.kind) {
-                  TaskKind.maintenance =>
-                    _MaintenanceRow(task: task, day: today),
-                  TaskKind.abstinence =>
-                    _AbstinenceRow(task: task, day: today),
-                  _ => _ExecutionRow(
-                      key: ValueKey(task.id),
-                      task: task,
-                      day: today,
-                      onCommit: (v) => _commit(ref, task, v),
-                    ),
-                },
-              ),
-            ),
-        if (data.hiddenDay == Dates.key(today))
-          Builder(builder: (context) {
-            final n = data
-                .tasksFor(today)
-                .where((t) => data.hidden.contains(t.id))
-                .length;
-            if (n == 0) return const SizedBox.shrink();
-            return GestureDetector(
-              onTap: () => ref.read(appProvider.notifier).showHiddenToday(),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 2, bottom: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.visibility_outlined, size: 14, color: c.inkFaint),
-                    const SizedBox(width: 6),
-                    Text('Mostra $n nascoste',
-                        style: WayFonts.mono(size: 10.5, color: c.inkFaint)),
-                  ],
+                child: _lockedWrap(
+                  !data.inWindowNow(task),
+                  switch (task.kind) {
+                    TaskKind.maintenance =>
+                      _MaintenanceRow(task: task, day: today),
+                    TaskKind.abstinence =>
+                      _AbstinenceRow(task: task, day: today),
+                    _ => _ExecutionRow(
+                        key: ValueKey(task.id),
+                        task: task,
+                        day: today,
+                        onCommit: (v) => _commit(ref, task, v),
+                      ),
+                  },
                 ),
               ),
-            );
-          }),
-        if (outWindow > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 2, bottom: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.schedule, size: 13, color: c.inkFaint),
-                const SizedBox(width: 6),
-                Text('$outWindow fuori dalla fascia oraria',
-                    style: WayFonts.mono(size: 10.5, color: c.inkFaint)),
-              ],
             ),
-          ),
         const SizedBox(height: 22),
         const SectionLabel('Andamento'),
         _TrendSection(data: data),
@@ -312,153 +311,6 @@ class _TodayCard extends StatelessWidget {
   }
 }
 
-class _LevelUpCard extends ConsumerWidget {
-  const _LevelUpCard({required this.task});
-
-  final Task task;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.c;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(
-        color: c.accentTint,
-        border: Border.all(color: c.accentSoft),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.auto_awesome, size: 20, color: c.accent),
-          const SizedBox(width: 12),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: WayFonts.ui(size: 12.5, color: c.ink),
-                children: [
-                  TextSpan(
-                    text: task.name,
-                    style: WayFonts.ui(
-                      size: 12.5,
-                      weight: FontWeight.w800,
-                      color: c.ink,
-                    ),
-                  ),
-                  TextSpan(text: ' è costante da ${task.streak} esecuzioni.\n'),
-                  const TextSpan(text: 'Passare a '),
-                  TextSpan(
-                    text: 'LV${task.level + 1}',
-                    style: WayFonts.ui(
-                      size: 12.5,
-                      weight: FontWeight.w800,
-                      color: c.ink,
-                    ),
-                  ),
-                  const TextSpan(text: '?'),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  final from = task.level;
-                  ref.read(appProvider.notifier).acceptLevelUp(task);
-                  final updated = ref
-                      .read(appProvider)
-                      .taskById(task.id);
-                  if (updated == null) return;
-                  final island = Offset(
-                    MediaQuery.of(context).size.width / 2,
-                    MediaQuery.of(context).padding.top + 40,
-                  );
-                  Reward.levelUp(ref.read(fxProvider), updated, from, island);
-                },
-                child: Text(
-                  'Accetta',
-                  style: WayFonts.ui(
-                    size: 12.5,
-                    weight: FontWeight.w800,
-                    color: c.accent,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 7),
-              GestureDetector(
-                onTap: () => ref.read(appProvider.notifier).dismissLevelUp(task),
-                child: Text(
-                  'Non ora',
-                  style: WayFonts.ui(size: 12.5, color: c.inkFaint),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Riga di esecuzione: spunta per le task complete, contatore per quelle
-/// a misura, con la tacca della soglia sulla barra.
-class _EvolveBadge extends ConsumerWidget {
-  const _EvolveBadge({required this.task});
-  final Task task;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.c;
-    final data = ref.watch(appProvider);
-    late final String label;
-    late final IconData icon;
-    late final Color col;
-    late final VoidCallback onTap;
-    if (data.abstinenceConcluded(task)) {
-      label = 'Conclusa · archivia';
-      icon = Icons.emoji_events_outlined;
-      col = c.easy;
-      onTap = () => ref.read(appProvider.notifier).archiveTask(task);
-    } else if (data.reconfigReady(task)) {
-      label = 'Rivedi';
-      icon = Icons.build_outlined;
-      col = c.hard;
-      onTap = () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => TaskEvolutionScreen(taskId: task.id, mode: 'reconfig')));
-    } else {
-      label = 'Level up';
-      icon = Icons.trending_up;
-      col = c.accent;
-      onTap = () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => TaskEvolutionScreen(taskId: task.id, mode: 'upgrade')));
-    }
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: col.withValues(alpha: 0.12),
-          border: Border.all(color: col.withValues(alpha: 0.5)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(children: [
-          Icon(icon, size: 16, color: col),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(label,
-                style: WayFonts.ui(size: 12.5, weight: FontWeight.w700, color: col)),
-          ),
-          Icon(Icons.chevron_right, size: 18, color: col),
-        ]),
-      ),
-    );
-  }
-}
-
 class _ReviewBanner extends StatelessWidget {
   const _ReviewBanner({required this.onOpen});
   final VoidCallback onOpen;
@@ -535,6 +387,7 @@ class _MaintenanceRow extends ConsumerWidget {
                       ? 'Compromessa oggi'
                       : 'Intatta · LV${task.level} · streak ${data.derivedStreak(task)}',
                   style: WayFonts.mono(size: 10.5, color: compromised ? c.hard : c.easy)),
+              if (upgradeHint(context, data, task) case final h?) h,
             ]),
           ),
           evolve ??
@@ -712,6 +565,12 @@ class _ExecutionRow extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text('${typeLabel(task)} · streak ${data.derivedStreak(task)}',
                     style: WayFonts.mono(size: 9, color: c.inkFaint)),
+                if (upgradeHint(context, data, task) case final h?) h,
+                if (task.kind == TaskKind.measure)
+                  Text(
+                    'prossimo +${(data.pointsAtValue(task, value + step) - data.pointsAtValue(task, value)).toStringAsFixed(1)}',
+                    style: WayFonts.mono(size: 9, color: c.accent),
+                  ),
                 if (task.kind == TaskKind.measure) ...[
                   const SizedBox(height: 7),
                   MeasureBar(
@@ -855,7 +714,6 @@ class _TrendSection extends ConsumerWidget {
   }
 }
 
-
 String typeLabel(Task t) => switch (t.kind) {
       TaskKind.complete => 'Completa',
       TaskKind.measure => 'Misura',
@@ -933,7 +791,6 @@ class _EvolvePill extends StatelessWidget {
   }
 }
 
-
 /// Sfondo mostrato durante lo swipe di una card per nasconderla.
 Widget _hideBackground(BuildContext context, Alignment align) {
   final c = context.c;
@@ -956,4 +813,101 @@ Widget _hideBackground(BuildContext context, Alignment align) {
       ],
     ),
   );
+}
+
+
+/// Task fuori dalla finestra oraria: mostrata ma "bloccata" (attenuata e non toccabile).
+Widget _lockedWrap(bool locked, Widget child) => locked
+    ? Opacity(opacity: 0.45, child: IgnorePointer(child: child))
+    : child;
+
+
+/// Barra di composizione del punteggio di oggi: fatto / mantenimento / bonus.
+/// Tap per espandere le tre liste dettagliate.
+class _ScoreBar extends ConsumerWidget {
+  const _ScoreBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final data = ref.watch(appProvider);
+    final b = data.dayBreakdown(Dates.today());
+    final total = b.active + b.eco + b.bonus;
+    if (total <= 0) return const SizedBox.shrink();
+
+    final segs = <(String, double, Color)>[
+      ('Fatto', b.active, c.accent),
+      ('Mantenimento', b.eco, c.media),
+      ('Bonus', b.bonus, c.easy),
+    ].where((s) => s.$2 > 0).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.surface2,
+        border: Border.all(color: c.lineSoft),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(
+            child: Text('COMPOSIZIONE PUNTEGGIO',
+                style: WayFonts.label(color: c.inkFaint, size: 9)),
+          ),
+          Text('${total.toStringAsFixed(1)} pt',
+              style: WayFonts.mono(size: 11, color: c.inkSoft)),
+        ]),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: SizedBox(
+            height: 8,
+            child: Row(children: [
+              for (final s in segs)
+                Expanded(
+                  flex: ((s.$2 / total * 1000).round()).clamp(1, 1000).toInt(),
+                  child: ColoredBox(color: s.$3),
+                ),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 12, runSpacing: 4, children: [
+          for (final s in segs)
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                  width: 8,
+                  height: 8,
+                  decoration:
+                      BoxDecoration(color: s.$3, shape: BoxShape.circle)),
+              const SizedBox(width: 4),
+              Text('${s.$1} ${s.$2.toStringAsFixed(1)}',
+                  style: WayFonts.mono(size: 9.5, color: c.inkFaint)),
+            ]),
+        ]),
+      ]),
+    );
+  }
+}
+
+
+/// Countdown nella card: quanto manca al level up, oppure alla riconfigurazione.
+/// Compare solo quando c'e' movimento (succ o fail > 0) e non e' ancora pronta.
+Widget? upgradeHint(BuildContext context, AppData data, Task task) {
+  final c = context.c;
+  if (task.kind == TaskKind.abstinence || task.archived) return null;
+  if (task.succ > 0 && !data.upgradeReady(task)) {
+    final rem = data.upgradeRemaining(task);
+    final base = data.upgradeBase(task);
+    final eff = data.upgradeThreshold(task);
+    final txt = eff < base
+        ? '↑ $rem al level up · soglia $eff/$base'
+        : '↑ $rem al level up';
+    return Text(txt, style: WayFonts.mono(size: 9, color: c.accent));
+  }
+  if (task.fail > 0 && !data.reconfigReady(task)) {
+    return Text('⚠ ancora ${data.reconfigRemaining(task)} e la rivediamo',
+        style: WayFonts.mono(size: 9, color: c.hard));
+  }
+  return null;
 }

@@ -81,7 +81,7 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
                   children: [
                     _metric(context, 'PUNTI OGGI', pts.toStringAsFixed(1)),
                     _sep(context),
-                    _metric(context, 'COMPLETAMENTO',
+                    _metric(context, 'PUNTEGGIO',
                         percentToday == null ? '—' : '$percentToday%'),
                     _sep(context),
                     _metric(context, 'BONUS', '+$bonusPct%'),
@@ -105,6 +105,12 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
                     format: (v) => '${v.round()}%'),
                 const SizedBox(height: 10),
                 _footRow(context, 'MEDIA', '$average%', 'GIORNI ≥ 100%', '$over/${valid.length}'),
+                const SizedBox(height: 6),
+                Text(
+                  'Punteggio Sabus: completamento pesato per livello e bonus '
+                  '(può superare 100%). Diverso dal “fatte su previste” della Home.',
+                  style: WayFonts.mono(size: 9, color: context.c.inkFaint),
+                ),
               ]),
               const SizedBox(height: 22),
 

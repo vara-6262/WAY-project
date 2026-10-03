@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:way/fx/fx_controller.dart';
 
+import '../fx/fx_controller.dart';
 import '../fx/reward.dart';
 import '../models/models.dart';
 import '../state/providers.dart';

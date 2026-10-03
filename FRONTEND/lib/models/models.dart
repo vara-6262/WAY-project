@@ -27,6 +27,9 @@ enum RewardCurve { linear, exponential }
 /// Periodo del dominio: ogni giorno scelto, oppure una volta a settimana.
 enum DomainPeriod { daily, weekly }
 
+/// Filtro della Home: cosa mostrare tra le task di oggi.
+enum HomeFilter { disponibili, mancanti, tutte }
+
 extension DomainPeriodLabel on DomainPeriod {
   String get label =>
       this == DomainPeriod.daily ? 'Giornaliera' : 'Settimanale';

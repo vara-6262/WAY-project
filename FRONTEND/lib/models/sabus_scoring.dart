@@ -4,15 +4,10 @@ import '../data/dates.dart';
 import 'app_data.dart';
 import 'models.dart';
 
-/// Logica di punteggio di Sabus, iniettata sul modello di WAY (additiva):
-/// punti con moltiplicatore di livello, number nerfato (al target = 0.5*target;
-/// l'esponenziale premia le unità e accelera oltre il target), bonus da streak,
-/// e streak DERIVATO dal log. Non tocca percentOf/dayScore esistenti.
-// ---- Costanti number (tarabili) ----
+
 const double _linPerUnit = 0.5; // punti per unità del lineare
 const double _expBase = 0.85;   // punti per unità BASE dell'esponenziale (~ una checklist)
 const double _expAccel = 0.12;  // quanto cresce ogni unità successiva
-// ---- Costanti astinenza ----
 const double _absFloor = 0.3;   // reward minimo di mantenimento
 const double _absPeak = 3.0;    // reward massimo al picco della campana
 
@@ -32,6 +27,8 @@ extension SabusScoring on AppData {
   // Soglie del ciclo di vita
   static const int upThreshold = 14; // successi per l'upgrade
   static const int failThreshold = 3; // fallimenti per la riconfigurazione
+  static const double overshootCapK = 0.3; // sconto max soglia da overshoot
+  static const double consistencyCapK = 0.3; // sconto max soglia da consistenza
   static const double absEndK = 3.0; // fine astinenza a ~absEndK * tau
 
   // Settimanale + mantenimento
@@ -88,12 +85,111 @@ extension SabusScoring on AppData {
     return t.activeOn(day) ? expectedAtTarget(t) : 0;
   }
 
+  /// Statistiche recenti (finestra) per modulare la soglia:
+  /// - successRate: regolarita' (occorrenze riuscite / previste), in [0,1]
+  /// - overshoot: superamento medio del target per i number, gia' cappato [0, overshootCapK]
+  ({double successRate, double overshoot}) recentStats(Task t, {int window = 14}) {
+    final ref = Dates.dayOf(DateTime.now());
+    var day = Dates.addDays(ref, -1);
+    var scheduled = 0, counted = 0;
+    var overSum = 0.0;
+    var overN = 0;
+    for (var i = 0; i < 400 && scheduled < window; i++) {
+      if (t.createdOn != null && day.isBefore(Dates.dayOf(t.createdOn!))) break;
+      if (t.activeOn(day)) {
+        scheduled++;
+        if (taskCounts(t, day)) {
+          counted++;
+          if (t.kind == TaskKind.measure && t.target > 0) {
+            final v = valueOf(t, day);
+            overSum += (v / t.target - 1).clamp(0.0, overshootCapK);
+            overN++;
+          }
+        }
+      }
+      day = Dates.addDays(day, -1);
+    }
+    return (
+      successRate: scheduled == 0 ? 0.0 : counted / scheduled,
+      overshoot: overN == 0 ? 0.0 : overSum / overN,
+    );
+  }
+
+  /// Soglia BASE (senza sconti), per famiglia.
+  int upgradeBase(Task t) {
+    if (t.period == DomainPeriod.weekly) return 4; // ~un mese di settimane
+    if (t.kind == TaskKind.maintenance) return 21; // passiva
+    return upThreshold; // complete/misura giornaliere
+  }
+
+  /// Soglia di successi per l'upgrade. Per le giornaliere complete/misura e'
+  /// scontata da consistenza (regolarita' recente) e overshoot (cappato).
+  /// I due sconti hanno un tetto naturale: niente pavimento esplicito.
+  int upgradeThreshold(Task t) {
+    final base = upgradeBase(t);
+    if (t.kind == TaskKind.abstinence ||
+        t.period == DomainPeriod.weekly ||
+        t.kind == TaskKind.maintenance) {
+      return base; // queste famiglie non ricevono sconto
+    }
+    final st = recentStats(t);
+    final consDiscount = consistencyCapK * st.successRate; // [0, 0.3]
+    final overDiscount = st.overshoot; // gia' [0, 0.3]
+    final eff = base * (1 - consDiscount) * (1 - overDiscount);
+    final r = eff.round();
+    return r < 1 ? 1 : r;
+  }
+
+  /// Successi che mancano all'upgrade (0 se gia' pronta).
+  int upgradeRemaining(Task t) {
+    final r = upgradeThreshold(t) - t.succ;
+    return r < 0 ? 0 : r;
+  }
+
+  /// Fallimenti che mancano alla riconfigurazione.
+  int reconfigRemaining(Task t) {
+    final r = failThreshold - t.fail;
+    return r < 0 ? 0 : r;
+  }
+
   bool upgradeReady(Task t) =>
-      t.kind != TaskKind.abstinence && !t.archived && t.succ >= upThreshold;
+      t.kind != TaskKind.abstinence &&
+      !t.archived &&
+      t.succ >= upgradeThreshold(t);
   bool reconfigReady(Task t) =>
       t.kind != TaskKind.abstinence && !t.archived && t.fail >= failThreshold;
   /// Task da mostrare in Home oggi: previste oggi, ma le settimanali gia'
   /// completate questa settimana spariscono (restano attive per l'eco).
+  /// La task e' dentro la sua finestra oraria in questo momento?
+  bool inWindowNow(Task t) {
+    final now = DateTime.now();
+    final nowM = now.hour * 60 + now.minute;
+    return nowM >= t.start * 60 && nowM < t.end * 60;
+  }
+
+  /// Task di oggi secondo il filtro della Home.
+  List<Task> tasksForFilter(HomeFilter f) {
+    final today = Dates.today();
+    final hiddenSet =
+        hiddenDay == Dates.key(today) ? hidden.toSet() : const <String>{};
+    bool weeklySatisfied(Task t) =>
+        isWeekly(t) && weekCounted(t, Dates.mondayOf(today), upTo: today);
+    bool isDone(Task t) => percentOf(t, today) >= 100;
+    return tasksFor(today).where((t) {
+      switch (f) {
+        case HomeFilter.disponibili:
+          return !hiddenSet.contains(t.id) &&
+              !weeklySatisfied(t) &&
+              !isDone(t) &&
+              inWindowNow(t);
+        case HomeFilter.mancanti:
+          return !hiddenSet.contains(t.id) && !weeklySatisfied(t) && !isDone(t);
+        case HomeFilter.tutte:
+          return true;
+      }
+    }).toList(growable: false);
+  }
+
   List<Task> visibleToday() {
     final today = Dates.today();
     final now = DateTime.now();
@@ -230,6 +326,23 @@ extension SabusScoring on AppData {
     return b > bonusCap ? bonusCap : b;
   }
 
+  /// Scomposizione del punteggio del giorno: occorrenze, mantenimento (eco), bonus.
+  ({double active, double eco, double bonus}) dayBreakdown(DateTime day) {
+    var active = 0.0, eco = 0.0;
+    for (final t in tasksInScope()) {
+      final e = taskDayEarned(t, day);
+      if (e <= 0) continue;
+      final occ = !isWeekly(t) || (t.activeOn(day) && taskCounts(t, day));
+      if (occ) {
+        active += e;
+      } else {
+        eco += e;
+      }
+    }
+    final bonus = (active + eco) * dayBonusFraction(day);
+    return (active: active, eco: eco, bonus: bonus);
+  }
+
   /// Percentuale Sabus del giorno = punti*(1+bonus)/attesi*100 (può superare 100).
   int? dayPercentSabus(DateTime day) {
     final exp = expectedPointsFor(day);
@@ -237,6 +350,15 @@ extension SabusScoring on AppData {
     final base = ledger[Dates.key(day)] ?? dayPoints(day);
     final total = base * (1 + dayBonusFraction(day));
     return (total / exp * 100).round();
+  }
+
+  /// Punti che varrebbe una task measure a un dato valore (anteprima guadagno).
+  double pointsAtValue(Task t, double v) {
+    if (t.kind != TaskKind.measure || t.target <= 0 || v < 0) return 0;
+    final m = sabusMult(t);
+    return t.reward == RewardCurve.exponential
+        ? _expPoints(v, m)
+        : _linPoints(v, m);
   }
 
   /// Serie giornaliera del valore registrato per una task (per il plot dei number).
