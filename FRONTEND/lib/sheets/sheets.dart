@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/dates.dart';
+import '../models/sabus_scoring.dart';
 import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
@@ -929,6 +930,34 @@ Future<void> showProfileSheet(BuildContext context, WidgetRef ref) async {
                 if (!context.mounted) return;
                 showToast(context,
                     ok ? 'Backup ripristinato' : 'Backup non valido');
+              },
+            ),
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'Report bonus (debug)',
+              onPressed: () {
+                final report =
+                    ref2.read(appProvider).bonusReport(Dates.today());
+                showDialog<void>(
+                  context: context,
+                  builder: (dctx) => AlertDialog(
+                    title: const Text('Composizione bonus'),
+                    content: SizedBox(
+                      width: double.maxFinite,
+                      child: SingleChildScrollView(
+                        child: SelectableText(report,
+                            style:
+                                WayFonts.mono(size: 11, color: context.c.ink)),
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dctx).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
               },
             ),
             const SizedBox(height: 18),

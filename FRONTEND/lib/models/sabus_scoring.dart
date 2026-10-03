@@ -4,10 +4,15 @@ import '../data/dates.dart';
 import 'app_data.dart';
 import 'models.dart';
 
-
+/// Logica di punteggio di Sabus, iniettata sul modello di WAY (additiva):
+/// punti con moltiplicatore di livello, number nerfato (al target = 0.5*target;
+/// l'esponenziale premia le unità e accelera oltre il target), bonus da streak,
+/// e streak DERIVATO dal log. Non tocca percentOf/dayScore esistenti.
+// ---- Costanti number (tarabili) ----
 const double _linPerUnit = 0.5; // punti per unità del lineare
 const double _expBase = 0.85;   // punti per unità BASE dell'esponenziale (~ una checklist)
 const double _expAccel = 0.12;  // quanto cresce ogni unità successiva
+// ---- Costanti astinenza ----
 const double _absFloor = 0.3;   // reward minimo di mantenimento
 const double _absPeak = 3.0;    // reward massimo al picco della campana
 
@@ -311,19 +316,60 @@ extension SabusScoring on AppData {
 
   /// Bonus del giorno (frazione): somma di min(streak,30)*(level+1)*0.02 per streak>=3.
   /// Costante e tetto del bonus giornaliero (evita che superi il piatto).
-  static const double bonusK = 0.01;
-  static const double bonusCap = 0.5;
+  static const double bonusK = 0.0025; // era 0.01; ridotto a 1/4
+  static const double bonusCap = 0.35; // tetto ASINTOTICO (saturazione dolce)
+  static const double bonusHalf = 0.4; // grezzo a cui si raggiunge meta' del tetto
+
+  /// Report testuale (debug) di come nasce il bonus del giorno:
+  /// contributo per task + grezzo vs tetto vs applicato.
+  String bonusReport(DateTime day) {
+    final rows =
+        <({String name, int streak, int level, double freq, double contrib})>[];
+    var raw = 0.0;
+    for (final t in tasksFor(day)) {
+      final s = derivedStreak(t, asOf: day);
+      if (s < 3) continue;
+      final capped = s > 30 ? 30 : s;
+      final contrib = capped * (t.level + 1) * bonusK * bonusFreq(t);
+      raw += contrib;
+      rows.add((name: t.name, streak: s, level: t.level, freq: bonusFreq(t), contrib: contrib));
+    }
+    rows.sort((a, b) => b.contrib.compareTo(a.contrib));
+    final applied = bonusCap * raw / (raw + bonusHalf);
+    final buf = StringBuffer()
+      ..writeln('Formula per task:')
+      ..writeln('  per task: min(streak,30) x (LV+1) x $bonusK x (occorrenze/7)')
+      ..writeln('  totale: cap x grezzo / (grezzo + mezza-sat)')
+      ..writeln('')
+      ..writeln('Grezzo:            ${(raw * 100).toStringAsFixed(0)}%')
+      ..writeln('Tetto (asintoto):  ${(bonusCap * 100).toStringAsFixed(0)}%')
+      ..writeln('Mezza-saturazione: a grezzo ${(bonusHalf * 100).toStringAsFixed(0)}%')
+      ..writeln('Applicato:         ${(applied * 100).toStringAsFixed(0)}%  (saturazione dolce)')
+      ..writeln('Task con bonus (streak>=3): ${rows.length}')
+      ..writeln('');
+    for (final r in rows) {
+      buf.writeln('${r.name.padRight(16)}'
+          'streak ${r.streak} · LV${r.level} · f${r.freq.toStringAsFixed(2)}  =  +${(r.contrib * 100).toStringAsFixed(1)}%');
+    }
+    if (rows.isEmpty) buf.writeln('(nessuna task con streak >= 3 oggi)');
+    return buf.toString();
+  }
+
+  /// Peso del bonus per frequenza: occorrenze previste a settimana / 7.
+  /// Settimanale = 1/7; giornaliera su N giorni = N/7.
+  double bonusFreq(Task t) => (isWeekly(t) ? 1 : t.days.length) / 7.0;
 
   double dayBonusFraction(DateTime day) {
-    var b = 0.0;
+    var raw = 0.0;
     for (final t in tasksFor(day)) {
       final s = derivedStreak(t, asOf: day);
       if (s >= 3) {
         final capped = s > 30 ? 30 : s;
-        b += capped * (t.level + 1) * bonusK;
+        raw += capped * (t.level + 1) * bonusK * bonusFreq(t);
       }
     }
-    return b > bonusCap ? bonusCap : b;
+    // Rendimenti decrescenti: saturazione dolce verso bonusCap, mai piatta.
+    return bonusCap * raw / (raw + bonusHalf);
   }
 
   /// Scomposizione del punteggio del giorno: occorrenze, mantenimento (eco), bonus.

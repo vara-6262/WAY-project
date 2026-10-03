@@ -12,9 +12,9 @@ extension DifficultyLabel on Difficulty {
 
 /// Regola del prodotto: 1-3 criteri facile, 4-7 media, 8+ difficile.
 /// La difficolta' non si sceglie, si ottiene.
-Difficulty difficultyForCriteria(int count) {
-  if (count < 4) return Difficulty.easy;
-  if (count <= 7) return Difficulty.media;
+Difficulty difficultyForLevel(int level) {
+  if (level <= 1) return Difficulty.easy;
+  if (level <= 4) return Difficulty.media;
   return Difficulty.hard;
 }
 
@@ -115,7 +115,7 @@ class Task {
   /// Esecuzioni consecutive riuscite.
   final int streak;
 
-  Difficulty get difficulty => difficultyForCriteria(criteria.length);
+  Difficulty get difficulty => difficultyForLevel(level);
 
   /// Avanzamento verso il livello successivo: 28 esecuzioni costanti.
   double get levelProgress => (streak / 28).clamp(0.0, 1.0);
