@@ -33,13 +33,13 @@ class HomeScreen extends ConsumerWidget {
 
     final beforeTask = data.percentOf(task, today);
     final beforeValue = data.valueOf(task, today);
-    final beforeDay = data.dayScore(today) ?? 0;
+    final beforeDay = data.dayPercentSabus(today) ?? 0;
 
     ref.read(appProvider.notifier).setValue(task, value, day: today);
 
     final after = ref.read(appProvider);
     final afterTask = after.percentOf(task, today);
-    final afterDay = after.dayScore(today) ?? 0;
+    final afterDay = after.dayPercentSabus(today) ?? 0;
 
     final taskWon = beforeTask < 100 && afterTask >= 100;
     final dayWon = beforeDay < 100 && afterDay >= 100;
@@ -942,7 +942,7 @@ Widget _progressLine(BuildContext context, AppData data, Task task) {
     if (upgradeable && !data.upgradeReady(task)) ...[
       Expanded(
         child: _GiftBar(
-            succ: task.succ,
+            succ: streak,
             effective: eff,
             base: base,
             color: c.accent,

@@ -30,7 +30,8 @@ extension SabusScoring on AppData {
   static const double numK = 0.5;
 
   // Soglie del ciclo di vita
-  static const int upThreshold = 14; // successi per l'upgrade
+  static const int weeksToUpgrade = 2; // ~2 settimane del ritmo della task
+  static const int upgradeFloor = 3; // minimo occorrenze per un upgrade
   static const int failThreshold = 3; // fallimenti per la riconfigurazione
   static const double overshootCapK = 0.3; // sconto max soglia da overshoot
   static const double consistencyCapK = 0.3; // sconto max soglia da consistenza
@@ -95,12 +96,15 @@ extension SabusScoring on AppData {
   /// - overshoot: superamento medio del target per i number, gia' cappato [0, overshootCapK]
   ({double successRate, double overshoot}) recentStats(Task t, {int window = 14}) {
     final ref = Dates.dayOf(DateTime.now());
+    // La consistenza conta solo DALL'ultimo reset (upgrade/reconfig/Mantieni):
+    // dopo un upgrade la task ha nuovi requisiti, la storia vecchia non vale.
+    final floor = t.streakSince ?? t.createdOn;
     var day = Dates.addDays(ref, -1);
     var scheduled = 0, counted = 0;
     var overSum = 0.0;
     var overN = 0;
     for (var i = 0; i < 400 && scheduled < window; i++) {
-      if (t.createdOn != null && day.isBefore(Dates.dayOf(t.createdOn!))) break;
+      if (floor != null && day.isBefore(Dates.dayOf(floor))) break;
       if (t.activeOn(day)) {
         scheduled++;
         if (taskCounts(t, day)) {
@@ -121,10 +125,12 @@ extension SabusScoring on AppData {
   }
 
   /// Soglia BASE (senza sconti), per famiglia.
+  /// Soglia BASE derivata dalla FREQUENZA: occorrenze a settimana x weeksToUpgrade,
+  /// con un pavimento. Cosi' una task a giorni alterni non richiede un mese.
   int upgradeBase(Task t) {
-    if (t.period == DomainPeriod.weekly) return 4; // ~un mese di settimane
-    if (t.kind == TaskKind.maintenance) return 21; // passiva
-    return upThreshold; // complete/misura giornaliere
+    final perWeek = isWeekly(t) ? 1 : (t.days.isEmpty ? 7 : t.days.length);
+    final b = perWeek * weeksToUpgrade;
+    return b < upgradeFloor ? upgradeFloor : b;
   }
 
   /// Soglia di successi per l'upgrade. Per le giornaliere complete/misura e'
@@ -132,11 +138,10 @@ extension SabusScoring on AppData {
   /// I due sconti hanno un tetto naturale: niente pavimento esplicito.
   int upgradeThreshold(Task t) {
     final base = upgradeBase(t);
-    if (t.kind == TaskKind.abstinence ||
-        t.period == DomainPeriod.weekly ||
-        t.kind == TaskKind.maintenance) {
-      return base; // queste famiglie non ricevono sconto
+    if (t.kind == TaskKind.abstinence || t.period == DomainPeriod.weekly) {
+      return base; // astinenza non usa succ; settimanale ha gia' soglia bassa
     }
+    // Mantenimento: riceve lo sconto consistenza (overshoot = 0 per sua natura).
     final st = recentStats(t);
     final consDiscount = consistencyCapK * st.successRate; // [0, 0.3]
     final overDiscount = st.overshoot; // gia' [0, 0.3]
@@ -147,7 +152,7 @@ extension SabusScoring on AppData {
 
   /// Successi che mancano all'upgrade (0 se gia' pronta).
   int upgradeRemaining(Task t) {
-    final r = upgradeThreshold(t) - t.succ;
+    final r = upgradeThreshold(t) - derivedStreak(t);
     return r < 0 ? 0 : r;
   }
 
@@ -160,7 +165,7 @@ extension SabusScoring on AppData {
   bool upgradeReady(Task t) =>
       t.kind != TaskKind.abstinence &&
       !t.archived &&
-      t.succ >= upgradeThreshold(t);
+      derivedStreak(t) >= upgradeThreshold(t);
   bool reconfigReady(Task t) =>
       t.kind != TaskKind.abstinence && !t.archived && t.fail >= failThreshold;
   /// Task da mostrare in Home oggi: previste oggi, ma le settimanali gia'
@@ -265,33 +270,36 @@ extension SabusScoring on AppData {
     final ref = Dates.dayOf(asOf ?? DateTime.now());
     final floor = t.streakSince;
     if (isWeekly(t)) {
-      var monday = Dates.addDays(Dates.mondayOf(ref), -7); // settimana scorsa
+      var monday = Dates.mondayOf(ref); // settimana corrente
       var weeks = 0;
       for (var i = 0; i < 200; i++) {
         if (floor != null && monday.isBefore(Dates.mondayOf(Dates.dayOf(floor)))) {
           break;
         }
         if (weekHasScheduled(t, monday)) {
-          if (weekCounted(t, monday)) {
+          final up = i == 0 ? ref : Dates.addDays(monday, 6);
+          if (weekCounted(t, monday, upTo: up)) {
             weeks++;
-          } else {
-            break;
+          } else if (i != 0) {
+            break; // settimana passata non riuscita: spezza
           }
+          // settimana corrente ancora aperta: in sospeso, non spezza
         }
         monday = Dates.addDays(monday, -7);
       }
       return weeks;
     }
-    var day = Dates.addDays(ref, -1);
+    var day = ref; // parte da OGGI (aggiornamento in tempo reale col check)
     var streak = 0;
     for (var i = 0; i < 400; i++) {
       if (floor != null && day.isBefore(Dates.dayOf(floor))) break;
       if (t.activeOn(day)) {
         if (taskCounts(t, day)) {
           streak++;
-        } else {
-          break;
+        } else if (i != 0) {
+          break; // un giorno passato mancato spezza
         }
+        // oggi non ancora fatto: in sospeso, non spezza lo streak
       }
       day = Dates.addDays(day, -1);
     }
@@ -378,11 +386,15 @@ extension SabusScoring on AppData {
     for (final t in tasksInScope()) {
       final e = taskDayEarned(t, day);
       if (e <= 0) continue;
-      final occ = !isWeekly(t) || (t.activeOn(day) && taskCounts(t, day));
-      if (occ) {
-        active += e;
-      } else {
+      // Passivi = punti che hai senza agire: mantenimento intatto, astinenza
+      // pulita, eco di una settimanale fuori occorrenza.
+      final passive = t.kind == TaskKind.maintenance ||
+          t.kind == TaskKind.abstinence ||
+          (isWeekly(t) && !(t.activeOn(day) && taskCounts(t, day)));
+      if (passive) {
         eco += e;
+      } else {
+        active += e;
       }
     }
     final bonus = (active + eco) * dayBonusFraction(day);
