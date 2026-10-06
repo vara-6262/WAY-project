@@ -314,7 +314,7 @@ class _ChipBody extends StatelessWidget {
         boxShadow: elevated
             ? [
                 BoxShadow(
-                  color: c.ink.withOpacity(0.2),
+                  color: c.ink.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),

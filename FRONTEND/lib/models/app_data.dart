@@ -105,6 +105,8 @@ class AppData {
     this.ledger = const {},
     this.reviewed = const {},
     this.lastLifecycleDay = '',
+    this.hiddenDay = '',
+    this.hidden = const [],
   });
 
   final List<Task> tasks;
@@ -131,6 +133,10 @@ class AppData {
   /// Ultimo giorno processato per i contatori del ciclo di vita.
   final String lastLifecycleDay;
 
+  /// Task nascoste manualmente (swipe) e il giorno a cui si riferiscono.
+  final String hiddenDay;
+  final List<String> hidden;
+
   AppData copyWith({
     List<Task>? tasks,
     List<String>? coreIds,
@@ -144,6 +150,8 @@ class AppData {
     Map<String, double>? ledger,
     Set<String>? reviewed,
     String? lastLifecycleDay,
+    String? hiddenDay,
+    List<String>? hidden,
   }) {
     return AppData(
       tasks: tasks ?? this.tasks,
@@ -158,6 +166,8 @@ class AppData {
       ledger: ledger ?? this.ledger,
       reviewed: reviewed ?? this.reviewed,
       lastLifecycleDay: lastLifecycleDay ?? this.lastLifecycleDay,
+      hiddenDay: hiddenDay ?? this.hiddenDay,
+      hidden: hidden ?? this.hidden,
     );
   }
 
@@ -175,6 +185,8 @@ class AppData {
         'ledger': ledger,
         'reviewed': reviewed.toList(),
         'lastLifecycleDay': lastLifecycleDay,
+        'hiddenDay': hiddenDay,
+        'hidden': hidden,
       };
 
   factory AppData.fromJson(Map<String, dynamic> j) {
@@ -213,6 +225,10 @@ class AppData {
           .map((e) => e as String)
           .toSet()),
       lastLifecycleDay: j['lastLifecycleDay'] as String? ?? '',
+      hiddenDay: j['hiddenDay'] as String? ?? '',
+      hidden: ((j['hidden'] as List<dynamic>? ?? const [])
+          .map((e) => e as String)
+          .toList()),
     );
   }
 }

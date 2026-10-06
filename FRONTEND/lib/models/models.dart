@@ -12,9 +12,9 @@ extension DifficultyLabel on Difficulty {
 
 /// Regola del prodotto: 1-3 criteri facile, 4-7 media, 8+ difficile.
 /// La difficolta' non si sceglie, si ottiene.
-Difficulty difficultyForCriteria(int count) {
-  if (count < 4) return Difficulty.easy;
-  if (count <= 7) return Difficulty.media;
+Difficulty difficultyForLevel(int level) {
+  if (level <= 1) return Difficulty.easy;
+  if (level <= 4) return Difficulty.media;
   return Difficulty.hard;
 }
 
@@ -26,6 +26,9 @@ enum RewardCurve { linear, exponential }
 
 /// Periodo del dominio: ogni giorno scelto, oppure una volta a settimana.
 enum DomainPeriod { daily, weekly }
+
+/// Filtro della Home: cosa mostrare tra le task di oggi.
+enum HomeFilter { disponibili, mancanti, tutte }
 
 extension DomainPeriodLabel on DomainPeriod {
   String get label =>
@@ -65,6 +68,7 @@ class Task {
     this.succ = 0,
     this.fail = 0,
     this.streakSince,
+    this.createdOn,
     this.archived = false,
     required this.level,
     required this.streak,
@@ -99,6 +103,9 @@ class Task {
   /// Data da cui contare lo streak (azzerata con "Mantieni").
   final DateTime? streakSince;
 
+  /// Nascita della task: prima di questa data non esiste (niente punti/streak).
+  final DateTime? createdOn;
+
   /// Task conclusa/archiviata (fuori dallo scope).
   final bool archived;
 
@@ -108,7 +115,7 @@ class Task {
   /// Esecuzioni consecutive riuscite.
   final int streak;
 
-  Difficulty get difficulty => difficultyForCriteria(criteria.length);
+  Difficulty get difficulty => difficultyForLevel(level);
 
   /// Avanzamento verso il livello successivo: 28 esecuzioni costanti.
   double get levelProgress => (streak / 28).clamp(0.0, 1.0);
@@ -131,6 +138,7 @@ class Task {
     int? succ,
     int? fail,
     DateTime? streakSince,
+    DateTime? createdOn,
     bool? archived,
     int? level,
     int? streak,
@@ -152,6 +160,7 @@ class Task {
       succ: succ ?? this.succ,
       fail: fail ?? this.fail,
       streakSince: streakSince ?? this.streakSince,
+      createdOn: createdOn ?? this.createdOn,
       archived: archived ?? this.archived,
       level: level ?? this.level,
       streak: streak ?? this.streak,
@@ -175,6 +184,7 @@ class Task {
         'succ': succ,
         'fail': fail,
         'streakSince': streakSince?.toIso8601String(),
+        'createdOn': createdOn?.toIso8601String(),
         'archived': archived,
         'level': level,
         'streak': streak,
@@ -211,6 +221,9 @@ class Task {
         fail: (j['fail'] as num?)?.toInt() ?? 0,
         streakSince: j['streakSince'] != null
             ? DateTime.parse(j['streakSince'] as String)
+            : null,
+        createdOn: j['createdOn'] != null
+            ? DateTime.parse(j['createdOn'] as String)
             : null,
         archived: j['archived'] == true,
         level: (j['level'] as num?)?.toInt() ?? 0,

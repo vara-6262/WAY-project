@@ -68,11 +68,9 @@ class WizardScaffold extends StatelessWidget {
                                   duration: const Duration(milliseconds: 260),
                                   height: 3,
                                   decoration: BoxDecoration(
-                                    color: i < safeStepIndex
+                                    color: i < stepIndex
                                         ? c.accent.withValues(alpha: 0.45)
-                                        : (i == safeStepIndex
-                                            ? c.accent
-                                            : c.surface3),
+                                        : (i == stepIndex ? c.accent : c.surface3),
                                     borderRadius: BorderRadius.circular(2),
                                   ),
                                 ),
@@ -388,7 +386,7 @@ class BigSwitch<T> extends StatelessWidget {
                         style: WayFonts.ui(
                           size: 10.5,
                           height: 1.3,
-                          color: options[i].value == selected
+                          color: values[i] == selected
                               ? c.accentInk.withValues(alpha: 0.74)
                               : c.inkFaint,
                         ),

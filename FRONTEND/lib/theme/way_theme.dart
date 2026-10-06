@@ -16,7 +16,8 @@ class WayFonts {
     FontWeight weight = FontWeight.w400,
     Color? color,
     double height = 1.45,
-    double letterSpacing = 0, TextDecoration? decoration,
+    double letterSpacing = 0,
+    TextDecoration? decoration = TextDecoration.none,
   }) {
     return GoogleFonts.getFont(
       'Manrope',
@@ -25,6 +26,7 @@ class WayFonts {
       color: color,
       height: height,
       letterSpacing: letterSpacing,
+      decoration: decoration,
     );
   }
 
@@ -35,6 +37,7 @@ class WayFonts {
     Color? color,
     double height = 1.1,
     double letterSpacing = -0.7,
+    TextDecoration decoration = TextDecoration.none,
   }) =>
       ui(
         size: size,
@@ -42,6 +45,7 @@ class WayFonts {
         color: color,
         height: height,
         letterSpacing: letterSpacing,
+        decoration: decoration,
       );
 
   static TextStyle mono({
@@ -50,6 +54,7 @@ class WayFonts {
     Color? color,
     double height = 1.4,
     double letterSpacing = 0.5,
+    TextDecoration decoration = TextDecoration.none,
   }) {
     return GoogleFonts.getFont(
       'Space Mono',
@@ -58,12 +63,23 @@ class WayFonts {
       color: color,
       height: height,
       letterSpacing: letterSpacing,
+      decoration: decoration,
     );
   }
 
   /// Occhiello maiuscolo delle sezioni.
-  static TextStyle label({double size = 10, Color? color}) =>
-      mono(size: size, weight: FontWeight.w700, color: color, letterSpacing: 1.2);
+  static TextStyle label({
+    double size = 10,
+    Color? color,
+    TextDecoration decoration = TextDecoration.none,
+  }) =>
+      mono(
+        size: size,
+        weight: FontWeight.w700,
+        color: color,
+        letterSpacing: 1.2,
+        decoration: decoration,
+      );
 }
 
 class WayTheme {
@@ -98,7 +114,7 @@ class WayTheme {
         activeTrackColor: c.accent,
         inactiveTrackColor: c.surface3,
         thumbColor: c.accent,
-        overlayColor: c.accent.withOpacity(0.12),
+        overlayColor: c.accent.withValues(alpha: 0.12),
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
       ),

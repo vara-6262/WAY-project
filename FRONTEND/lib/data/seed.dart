@@ -108,7 +108,91 @@ AppData buildProxyData() {
     streak: 8,
   );
 
-  final tasks = [studio, allenamento, svegliaTask, lettura, socialita];
+  // --- Task dimostrative per collaudare il ciclo di vita e i nuovi tipi ---
+  final demoLevelup = Task(
+    id: 'demo-levelup',
+    name: 'Meditazione',
+    iconKey: 'paper',
+    description: 'Demo: completata ogni giorno, pronta per il LEVEL UP.',
+    days: const [0, 1, 2, 3, 4, 5, 6],
+    criteria: [c('Almeno 5 minuti da seduto')],
+    kind: TaskKind.measure,
+    reward: RewardCurve.linear,
+    target: 3,
+    level: 0,
+    streak: 0,
+  );
+
+  final demoRivedi = Task(
+    id: 'demo-rivedi',
+    name: 'Corsa mattutina',
+    iconKey: 'dumbbell',
+    description: 'Demo: saltata gli ultimi giorni, chiede RIVEDI.',
+    days: const [0, 1, 2, 3, 4, 5, 6],
+    criteria: [c('Almeno 20 minuti continuativi')],
+    kind: TaskKind.complete,
+    reward: RewardCurve.linear,
+    target: 1,
+    level: 2,
+    streak: 0,
+  );
+
+  final demoAstinenza = Task(
+    id: 'demo-astinenza',
+    name: 'Niente zucchero',
+    iconKey: 'alarm',
+    description: 'Demo: astinenza con lunga striscia pulita, quasi CONCLUSA.',
+    days: const [0, 1, 2, 3, 4, 5, 6],
+    criteria: const [],
+    kind: TaskKind.abstinence,
+    reward: RewardCurve.linear,
+    target: 1,
+    tau: 7,
+    level: 0,
+    streak: 0,
+  );
+
+  final demoWeekly = Task(
+    id: 'demo-weekly',
+    name: 'Pulizie weekend',
+    iconKey: 'book',
+    description: 'Demo: una volta nel weekend (settimanale). Streak a settimane + eco.',
+    days: const [5, 6],
+    criteria: [c('Almeno una stanza a fondo')],
+    kind: TaskKind.complete,
+    reward: RewardCurve.linear,
+    target: 1,
+    period: DomainPeriod.weekly,
+    level: 1,
+    streak: 0,
+  );
+
+  final demoMant = Task(
+    id: 'demo-mant',
+    name: 'Stanza in ordine',
+    iconKey: 'people',
+    description: 'Demo: mantenimento con condizioni da non infrangere.',
+    days: const [0, 1, 2, 3, 4, 5, 6],
+    criteria: [c('Niente vestiti per terra'), c('Niente piatti nel lavandino')],
+    kind: TaskKind.maintenance,
+    reward: RewardCurve.linear,
+    target: 1,
+    level: 0,
+    streak: 0,
+  );
+
+  final tasks = [
+    studio,
+    allenamento,
+    svegliaTask,
+    lettura,
+    socialita,
+    demoLevelup,
+    demoRivedi,
+    demoAstinenza,
+    demoMant,
+    demoWeekly,
+  ];
 
   final places = [
     Place(
@@ -170,9 +254,37 @@ AppData buildProxyData() {
     socialita.id: 0,
   };
 
+  // Valori deterministici per le task demo (sovrascrivono il random).
+  for (var i = 90; i >= 0; i--) {
+    final day = Dates.addDays(today, -i);
+    final entry = log[Dates.key(day)]!;
+    entry[demoLevelup.id] = 3; // sempre al target -> molti successi -> Level up
+    entry[demoRivedi.id] = i >= 5 ? 1 : 0; // ultimi giorni mancati -> 3 fallimenti
+    entry[demoAstinenza.id] = 0; // sempre pulita -> streak lunga -> Conclusa
+    entry[demoMant.id] = i == 2 ? 1 : 0; // un giorno compromesso -> niente badge
+    entry[demoWeekly.id] =
+        day.weekday == DateTime.saturday ? 1 : 0; // fatta il sabato
+  }
+
+  // Le task demo "esistono" dall'inizio del log: bounda gli streak derivati
+  // (senza questo, un'astinenza sempre pulita arriverebbe al tetto di 400).
+  final logStart = Dates.addDays(today, -90);
+  final stampedTasks = tasks
+      .map((t) => t.copyWith(streakSince: logStart, createdOn: logStart))
+      .toList();
+
   return AppData(
-    tasks: tasks,
-    coreIds: [svegliaTask.id, allenamento.id, lettura.id],
+    tasks: stampedTasks,
+    coreIds: [
+      svegliaTask.id,
+      allenamento.id,
+      lettura.id,
+      demoLevelup.id,
+      demoRivedi.id,
+      demoAstinenza.id,
+      demoMant.id,
+      demoWeekly.id,
+    ],
     places: places,
     activePlaceId: places.first.id,
     log: log,
