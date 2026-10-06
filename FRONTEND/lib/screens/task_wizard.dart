@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import '../theme/way_theme.dart';
+import '../widgets/common.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../data/glyphs.dart';
 import '../models/models.dart';
 import '../sheets/sheets.dart';
 import '../state/providers.dart';
-import '../theme/way_theme.dart';
-import '../widgets/common.dart';
 import '../widgets/domain_editor.dart';
 import '../widgets/reward_curve.dart';
 import 'wizard_scaffold.dart';
@@ -298,9 +297,18 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
           ),
           const SizedBox(height: 7),
           BigSwitch<RewardCurve>(
-            values: RewardCurve.values,
-            titles: const ['Lineare', 'Esponenziale'],
-            captions: const ['Attrito costante', 'Attrito crescente'],
+            options: const [
+              BigSwitchOption(
+                value: RewardCurve.linear,
+                title: 'Lineare',
+                caption: 'Attrito costante',
+              ),
+              BigSwitchOption(
+                value: RewardCurve.exponential,
+                title: 'Esponenziale',
+                caption: 'Attrito crescente',
+              ),
+            ],
             selected: _reward,
             onChanged: (r) => setState(() => _reward = r),
           ),
