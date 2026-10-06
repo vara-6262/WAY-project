@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/dates.dart';
+import '../models/sabus_scoring.dart';
 import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../screens/place_wizard.dart';
-import '../services/notifications.dart';
 import '../state/providers.dart';
 import '../theme/way_colors.dart';
 import '../theme/way_theme.dart';
@@ -23,7 +24,7 @@ Future<T?> showAppSheet<T>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withOpacity(0.42),
+    barrierColor: Colors.black.withValues(alpha: 0.42),
     builder: (ctx) {
       return Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
@@ -381,7 +382,7 @@ Future<void> showTaskDetailSheet(
                 children: [
                   Text(task.name, style: WayFonts.display(size: 18, color: c.ink)),
                   Text(
-                    'LV${task.level} · ${task.kind == TaskKind.measure ? 'Misura · ${task.reward == RewardCurve.exponential ? 'esponenziale' : 'lineare'}' : 'Completa'}',
+                    'LV${task.level} · ${task.kind == TaskKind.measure ? 'Misura · ${task.reward == RewardCurve.exponential ? 'esponenziale' : 'lineare'}' : task.kind == TaskKind.maintenance ? 'Mantenimento' : task.kind == TaskKind.abstinence ? 'Astinenza' : 'Completa'}',
                     style: WayFonts.ui(size: 12.5, color: c.inkSoft),
                   ),
                 ],
@@ -422,9 +423,16 @@ Future<void> showTaskDetailSheet(
             ],
           ],
         ),
+        const SizedBox(height: 16),
+        Text('ORARIO', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+        const SizedBox(height: 6),
+        Text(
+          '${task.start.toString().padLeft(2, '0')}:00 – ${task.end.toString().padLeft(2, '0')}:00 · ${task.period.label}',
+          style: WayFonts.ui(size: 12.5, color: c.inkSoft),
+        ),
         if (task.kind == TaskKind.measure) ...[
           const SizedBox(height: 16),
-          Text('SOGLIA E TARGET', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+          Text('TARGET', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
           const SizedBox(height: 6),
           Text(
             'Obiettivo ${_num(task.target)}',
@@ -875,6 +883,81 @@ Future<void> showProfileSheet(BuildContext context, WidgetRef ref) async {
                 await n.scheduleFor(ref2.read(appProvider));
                 final count = await n.pendingCount();
                 showToast(context, 'Promemoria programmati: $count');
+              },
+            ),
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'Notifica tra 1 minuto (test)',
+              onPressed: () async {
+                final n = ref2.read(notificationsProvider);
+                if (!await n.canExact()) {
+                  await n.requestExact(); // apre le impostazioni sveglie esatte
+                }
+                final diag = await n.sendDelayedTest();
+                if (!context.mounted) return;
+                showDialog<void>(
+                  context: context,
+                  builder: (dctx) => AlertDialog(
+                    title: const Text('Test notifica programmata'),
+                    content: Text(diag),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dctx).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'Esporta backup negli appunti',
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(
+                    text: ref2.read(appProvider.notifier).exportState()));
+                showToast(context,
+                    'Backup copiato — incollalo in un file per salvarlo');
+              },
+            ),
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'Importa backup dagli appunti',
+              onPressed: () async {
+                final d = await Clipboard.getData('text/plain');
+                final ok = d?.text != null &&
+                    ref2.read(appProvider.notifier).importState(d!.text!);
+                if (!context.mounted) return;
+                showToast(context,
+                    ok ? 'Backup ripristinato' : 'Backup non valido');
+              },
+            ),
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'Report bonus (debug)',
+              onPressed: () {
+                final report =
+                    ref2.read(appProvider).bonusReport(Dates.today());
+                showDialog<void>(
+                  context: context,
+                  builder: (dctx) => AlertDialog(
+                    title: const Text('Composizione bonus'),
+                    content: SizedBox(
+                      width: double.maxFinite,
+                      child: SingleChildScrollView(
+                        child: SelectableText(report,
+                            style:
+                                WayFonts.mono(size: 11, color: context.c.ink)),
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dctx).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
               },
             ),
             const SizedBox(height: 18),

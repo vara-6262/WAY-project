@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/dates.dart';
 import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
@@ -455,8 +454,6 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
   Widget _criteriaBody() {
     final c = context.c;
     final n = _criteria.length;
-    final difficulty = difficultyForCriteria(n);
-    final colors = difficultyColors(context, difficulty);
 
     void add() {
       final v = _criterion.text.trim();
@@ -473,8 +470,8 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
         Container(
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
-            color: colors.bg,
-            border: Border.all(color: colors.fg.withOpacity(0.26)),
+            color: c.surface2,
+            border: Border.all(color: c.line),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -490,7 +487,7 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
                         width: 7,
                         height: 7,
                         decoration: BoxDecoration(
-                          color: i < math.min(n, 8) ? colors.fg : c.surface3,
+                          color: i < math.min(n, 8) ? c.accent : c.surface3,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -498,19 +495,11 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
                 ],
               ),
               const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(difficulty.label,
-                      style: WayFonts.ui(
-                          size: 12.5,
-                          weight: FontWeight.w800,
-                          color: colors.fg)),
-                  Text(
-                    n == 0 ? 'nessun criterio' : (n == 1 ? '1 criterio' : '$n criteri'),
-                    style: WayFonts.mono(size: 10.5, color: c.inkFaint),
-                  ),
-                ],
+              Text(
+                n == 0
+                    ? 'Nessun criterio'
+                    : (n == 1 ? '1 criterio' : '$n criteri'),
+                style: WayFonts.ui(size: 12.5, weight: FontWeight.w700, color: c.ink),
               ),
             ],
           ),

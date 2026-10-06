@@ -30,6 +30,9 @@ class Dates {
   /// 0 = lunedi', 6 = domenica.
   static int weekdayIndex(DateTime d) => d.weekday - 1;
 
+  /// Il lunedi' della settimana di calendario che contiene [d].
+  static DateTime mondayOf(DateTime d) => addDays(dayOf(d), -weekdayIndex(d));
+
   static DateTime dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
 
   static DateTime today() => dayOf(DateTime.now());

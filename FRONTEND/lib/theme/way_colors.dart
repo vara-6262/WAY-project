@@ -173,11 +173,37 @@ class WayColors extends ThemeExtension<WayColors> {
     advice: Color(0xFFFFC98A),
   );
 
+  /// Tema "Campo Base": piu' pulito, le card si leggono dal riempimento
+  /// invece che dal bordo (line ~ surface2).
+  static const campo = WayColors(
+    canvas: Color(0xFF12140F),
+    surface: Color(0xFF171A12),
+    surface2: Color(0xFF20241A),
+    surface3: Color(0xFF2C3123),
+    ink: Color(0xFFEDEFE4),
+    inkSoft: Color(0xFFCBCEBC),
+    inkFaint: Color(0xFF8E927E),
+    line: Color(0xFF20241A),
+    lineSoft: Color(0xFF1B1E15),
+    accent: Color(0xFFB6D46A),
+    accentInk: Color(0xFF17200A),
+    accentTint: Color(0xFF29331A),
+    accentSoft: Color(0xFF7E9648),
+    easy: Color(0xFF72D6A0),
+    easyTint: Color(0xFF14291F),
+    media: Color(0xFF8FB0FF),
+    mediaTint: Color(0xFF1B2438),
+    hard: Color(0xFFFF6A48),
+    hardTint: Color(0xFF33180F),
+    advice: Color(0xFFB9C39A),
+  );
+
   /// Temi disponibili: (id, etichetta, palette).
   static const List<(String, String, WayColors)> presets = [
     ('lime', 'Lime', dark),
     ('indaco', 'Indaco', indigo),
     ('brace', 'Brace', ember),
+    ('campo', 'Campo Base', campo),
   ];
 
   static WayColors byId(String id) {

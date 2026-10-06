@@ -43,11 +43,17 @@ class _SmoothLineChartState extends State<SmoothLineChart> {
     final fmt = widget.format ?? ((v) => v.toStringAsFixed(v == v.roundToDouble() ? 0 : 1));
     final nums = widget.values.whereType<double>().toList();
     final maxData = nums.isEmpty ? 1.0 : nums.reduce((a, b) => a > b ? a : b);
-    final maxV = [
-      widget.guide ?? 0,
-      maxData,
-      1.0,
-    ].reduce((a, b) => a > b ? a : b) * 1.15;
+    final minData = nums.isEmpty ? 0.0 : nums.reduce((a, b) => a < b ? a : b);
+    // Asse Y normalizzato sul range reale dei dati (non da 0): valorizza la curva.
+    final double yMin, yMax;
+    if ((maxData - minData).abs() < 1e-9) {
+      yMin = minData - 1;
+      yMax = maxData + 1;
+    } else {
+      final margin = (maxData - minData) * 0.15;
+      yMin = minData - margin;
+      yMax = maxData + margin;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,12 +73,13 @@ class _SmoothLineChartState extends State<SmoothLineChart> {
                   size: Size(w, widget.height),
                   painter: _LinePainter(
                     values: widget.values,
-                    maxV: maxV,
+                    yMin: yMin,
+                    yMax: yMax,
                     guide: widget.guide,
                     sel: _sel,
                     fmt: fmt,
                     line: line,
-                    fill: line.withOpacity(0.12),
+                    fill: line.withValues(alpha: 0.12),
                     grid: c.line,
                     surface: c.surface,
                     ink: c.ink,
@@ -104,7 +111,8 @@ class _SmoothLineChartState extends State<SmoothLineChart> {
 class _LinePainter extends CustomPainter {
   _LinePainter({
     required this.values,
-    required this.maxV,
+    required this.yMin,
+    required this.yMax,
     required this.guide,
     required this.sel,
     required this.fmt,
@@ -117,7 +125,8 @@ class _LinePainter extends CustomPainter {
   });
 
   final List<double?> values;
-  final double maxV;
+  final double yMin;
+  final double yMax;
   final double? guide;
   final int? sel;
   final String Function(double) fmt;
@@ -129,9 +138,10 @@ class _LinePainter extends CustomPainter {
     final h = size.height - padTop - padBottom;
     final n = values.length;
     double xAt(int i) => n <= 1 ? size.width / 2 : i * size.width / (n - 1);
-    double yAt(double v) => padTop + h - (v / maxV) * h;
+    double yAt(double v) =>
+        padTop + h - ((v - yMin) / (yMax - yMin)) * h;
 
-    if (guide != null) {
+    if (guide != null && guide! >= yMin && guide! <= yMax) {
       final gy = yAt(guide!);
       final gp = Paint()..color = grid..strokeWidth = 1;
       var gx = 0.0;
@@ -227,5 +237,8 @@ class _LinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LinePainter old) =>
-      old.values != values || old.sel != sel || old.maxV != maxV;
+      old.values != values ||
+      old.sel != sel ||
+      old.yMin != yMin ||
+      old.yMax != yMax;
 }
