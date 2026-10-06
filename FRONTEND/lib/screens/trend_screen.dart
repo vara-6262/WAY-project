@@ -12,6 +12,8 @@ import '../widgets/line_chart.dart';
 
 /// Trend: il monitoraggio lungo. Percentuale Sabus nel tempo, streak reali,
 /// e analisi separata di ogni task "number" con filtri (task + periodo).
+enum _AnalysisMode { number, abstinence, bonus }
+
 class TrendScreen extends ConsumerStatefulWidget {
   const TrendScreen({super.key});
 
@@ -21,6 +23,8 @@ class TrendScreen extends ConsumerStatefulWidget {
 
 class _TrendScreenState extends ConsumerState<TrendScreen> {
   String? _numberTaskId;
+  String? _absTaskId;
+  _AnalysisMode _mode = _AnalysisMode.number;
 
   List<DateTime> _daysBack(int n, DateTime today) =>
       [for (var i = n - 1; i >= 0; i--) Dates.addDays(today, -i)];
@@ -60,6 +64,11 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
     final sel = _numberTaskId != null
         ? data.taskById(_numberTaskId!)
         : (numberTasks.isNotEmpty ? numberTasks.first : null);
+    final abstinenceTasks =
+        data.tasks.where((t) => t.kind == TaskKind.abstinence).toList();
+    final selAbs = _absTaskId != null
+        ? data.taskById(_absTaskId!)
+        : (abstinenceTasks.isNotEmpty ? abstinenceTasks.first : null);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -171,27 +180,50 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
               ]),
               const SizedBox(height: 22),
 
-              // analisi number
-              const SectionLabel('Analisi number'),
+              // analisi
+              const SectionLabel('Analisi'),
               const SizedBox(height: 8),
-              if (numberTasks.isEmpty)
-                const EmptyStateBox(
-                  icon: Icons.query_stats_outlined,
-                  title: 'Nessuna task a quantità',
-                  body: 'Le task di tipo "misura" appariranno qui, tracciabili nel tempo.',
-                )
-              else ...[
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
+              Segmented<_AnalysisMode>(
+                values: _AnalysisMode.values,
+                labels: const ['Number', 'Astinenze', 'Bonus'],
+                selected: _mode,
+                onChanged: (m) => setState(() => _mode = m),
+              ),
+              const SizedBox(height: 10),
+              if (_mode == _AnalysisMode.number) ...[
+                if (numberTasks.isEmpty)
+                  const EmptyStateBox(
+                    icon: Icons.query_stats_outlined,
+                    title: 'Nessuna task a quantità',
+                    body: 'Le task di tipo misura appariranno qui.',
+                  )
+                else ...[
+                  Wrap(spacing: 6, runSpacing: 6, children: [
                     for (final t in numberTasks)
                       _chip(context, t.name, identical(t, sel),
                           () => setState(() => _numberTaskId = t.id)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (sel != null) _numberPanel(context, data, sel),
+                  ]),
+                  const SizedBox(height: 10),
+                  if (sel != null) _numberPanel(context, data, sel),
+                ],
+              ] else if (_mode == _AnalysisMode.abstinence) ...[
+                if (abstinenceTasks.isEmpty)
+                  const EmptyStateBox(
+                    icon: Icons.shield_outlined,
+                    title: 'Nessuna astinenza',
+                    body: 'Le astinenze appariranno qui, con la loro curva.',
+                  )
+                else ...[
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    for (final t in abstinenceTasks)
+                      _chip(context, t.name, identical(t, selAbs),
+                          () => setState(() => _absTaskId = t.id)),
+                  ]),
+                  const SizedBox(height: 10),
+                  if (selAbs != null) _absPanel(context, data, selAbs),
+                ],
+              ] else ...[
+                _bonusPanel(context, data),
               ],
             ],
           ),
@@ -223,6 +255,43 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
     ]);
   }
 
+  Widget _absPanel(BuildContext context, AppData data, Task task) {
+    final c = context.c;
+    final today = Dates.today();
+    final (values, labels) = _absSeries(data, task, data.range, today);
+    final present = values.whereType<double>().toList();
+    final cur = data.abstinenceRewardOn(task, today);
+    final peak = present.isEmpty ? 0.0 : present.reduce((a, b) => a > b ? a : b);
+    return _panel(context, [
+      SmoothLineChart(
+          values: values, labels: labels, color: c.easy, format: (v) => _num(v)),
+      const SizedBox(height: 10),
+      _footRow(context, 'OGGI', _num(cur), 'PICCO', _num(peak)),
+      const SizedBox(height: 4),
+      Text('Punti della campana: salgono verso il picco (τ=${task.tau}g) poi calano.',
+          style: WayFonts.mono(size: 9, color: c.inkFaint)),
+    ]);
+  }
+
+  Widget _bonusPanel(BuildContext context, AppData data) {
+    final c = context.c;
+    final today = Dates.today();
+    final (values, labels) = _bonusSeries(data, data.range, today);
+    final present = values.whereType<double>().toList();
+    final avg =
+        present.isEmpty ? 0.0 : present.reduce((a, b) => a + b) / present.length;
+    final peak = present.isEmpty ? 0.0 : present.reduce((a, b) => a > b ? a : b);
+    return _panel(context, [
+      SmoothLineChart(
+          values: values, labels: labels, color: c.easy, format: (v) => _num(v)),
+      const SizedBox(height: 10),
+      _footRow(context, 'MEDIA', _num(avg), 'MASSIMO', _num(peak)),
+      const SizedBox(height: 4),
+      Text('Punti dal bonus ogni giorno (cala dopo upgrade e fallimenti).',
+          style: WayFonts.mono(size: 9, color: c.inkFaint)),
+    ]);
+  }
+
   // ---------- helpers serie ----------
   (List<double?>, List<String>) _percentSeries(AppData data, TrendRange range, DateTime today) {
     switch (range) {
@@ -243,19 +312,51 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
     }
   }
 
-  (List<double?>, List<String>) _numberSeries(AppData data, Task task, TrendRange range, DateTime today) {
-    double? val(DateTime d) => task.activeOn(d) ? data.valueOf(task, d) : null;
+  /// Serie per task misura/astinenza: SOLO i giorni di dominio (niente buchi).
+  (List<double?>, List<String>) _domainSeries(
+      Task task, TrendRange range, DateTime today, double Function(DateTime) f) {
+    switch (range) {
+      case TrendRange.week:
+        final days = _daysBack(7, today).where(task.activeOn).toList();
+        return ([for (final d in days) f(d)],
+            [for (final d in days) Dates.dayShort[Dates.weekdayIndex(d)]]);
+      case TrendRange.month:
+        final days = _daysBack(30, today).where(task.activeOn).toList();
+        final step = days.length <= 7 ? 1 : (days.length ~/ 6 + 1);
+        return ([for (final d in days) f(d)],
+            [
+              for (var i = 0; i < days.length; i++)
+                i % step == 0 ? '${days[i].day}/${days[i].month}' : ''
+            ]);
+      case TrendRange.year:
+        return _monthly(today, (d) => task.activeOn(d) ? f(d) : null);
+    }
+  }
+
+  (List<double?>, List<String>) _numberSeries(
+          AppData data, Task task, TrendRange range, DateTime today) =>
+      _domainSeries(task, range, today, (d) => data.valueOf(task, d));
+
+  (List<double?>, List<String>) _absSeries(
+          AppData data, Task task, TrendRange range, DateTime today) =>
+      _domainSeries(
+          task, range, today, (d) => data.abstinenceRewardOn(task, d));
+
+  /// Serie bonus aggregato: punti bonus per giorno (tutti i giorni, nessun dominio).
+  (List<double?>, List<String>) _bonusSeries(
+      AppData data, TrendRange range, DateTime today) {
+    double b(DateTime d) => data.dayBreakdown(d).bonus;
     switch (range) {
       case TrendRange.week:
         final days = _daysBack(7, today);
-        return ([for (final d in days) val(d)],
+        return ([for (final d in days) b(d)],
             [for (final d in days) Dates.dayShort[Dates.weekdayIndex(d)]]);
       case TrendRange.month:
         final days = _daysBack(30, today);
-        return ([for (final d in days) val(d)],
+        return ([for (final d in days) b(d)],
             [for (var i = 0; i < days.length; i++) i % 7 == 0 ? '${days[i].day}' : '']);
       case TrendRange.year:
-        return _monthly(today, val);
+        return _monthly(today, (d) => b(d));
     }
   }
 

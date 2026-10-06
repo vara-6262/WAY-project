@@ -16,7 +16,7 @@ import '../state/providers.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/progress_ring.dart';
-import '../widgets/trend_chart.dart';
+import '../widgets/line_chart.dart';
 
 /// Home: dove si esegue. Le task non si creano qui, si registrano.
 class HomeScreen extends ConsumerWidget {
@@ -68,7 +68,13 @@ class HomeScreen extends ConsumerWidget {
     final data = ref.watch(appProvider);
     final today = Dates.today();
     final filter = ref.watch(homeFilterProvider);
-    final tasks = data.tasksForFilter(filter);
+    final tasks = [...data.tasksForFilter(filter)]
+      ..sort((a, b) {
+        // 1) raggruppa per tipo; 2) dentro il gruppo, le piu' vicine all'upgrade
+        final k = _kindOrder(a.kind).compareTo(_kindOrder(b.kind));
+        if (k != 0) return k;
+        return data.upgradeRemaining(a).compareTo(data.upgradeRemaining(b));
+      });
     final scheduled = data.tasksFor(today);
     final hiddenCount = data.hiddenDay == Dates.key(today)
         ? scheduled.where((t) => data.hidden.contains(t.id)).length
@@ -459,7 +465,9 @@ class _AbstinenceRow extends ConsumerWidget {
                       size: 12, color: relapsed ? c.inkFaint : c.easy),
                   const SizedBox(width: 3),
                   Text(
-                      relapsed ? 'Ricaduta oggi' : 'Pulito · ${streak}g di fila',
+                      relapsed
+                          ? 'Ricaduta oggi'
+                          : 'Pulito · ${streak}g · +${data.abstinenceRewardOn(task, day).toStringAsFixed(1)}',
                       style: WayFonts.mono(
                           size: 10.5, color: relapsed ? c.hard : c.easy)),
                 ]),
@@ -642,7 +650,12 @@ class _TrendSection extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TrendChart(values: values, labels: labels),
+              SmoothLineChart(
+                values: values.map((v) => v?.toDouble()).toList(),
+                labels: labels,
+                guide: 100,
+                format: (v) => '${v.round()}%',
+              ),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.only(top: 11),
@@ -1007,3 +1020,12 @@ class _GiftBar extends StatelessWidget {
     );
   }
 }
+
+
+/// Ordine di raggruppamento delle card per tipo in Home.
+int _kindOrder(TaskKind k) => switch (k) {
+      TaskKind.complete => 0,
+      TaskKind.measure => 1,
+      TaskKind.maintenance => 2,
+      TaskKind.abstinence => 3,
+    };

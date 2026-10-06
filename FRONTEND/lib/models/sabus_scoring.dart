@@ -4,21 +4,26 @@ import '../data/dates.dart';
 import 'app_data.dart';
 import 'models.dart';
 
-/// Logica di punteggio di Sabus, iniettata sul modello di WAY (additiva):
-/// punti con moltiplicatore di livello, number nerfato (al target = 0.5*target;
-/// l'esponenziale premia le unità e accelera oltre il target), bonus da streak,
-/// e streak DERIVATO dal log. Non tocca percentOf/dayScore esistenti.
-// ---- Costanti number (tarabili) ----
-const double _linPerUnit = 0.5; // punti per unità del lineare
-const double _expBase = 0.85;   // punti per unità BASE dell'esponenziale (~ una checklist)
-const double _expAccel = 0.12;  // quanto cresce ogni unità successiva
-// ---- Costanti astinenza ----
+const double _expPolar = 0.4;      // polarizzazione della curva number col livello
+const double _overRewardCap = 0.3; // extra massimo dal superamento del target
 const double _absFloor = 0.3;   // reward minimo di mantenimento
 const double _absPeak = 3.0;    // reward massimo al picco della campana
 
-double _linPoints(double v, double mult) => _linPerUnit * mult * v;
-double _expPoints(double v, double mult) =>
-    mult * (_expBase * v + _expAccel * v * (v - 1) / 2);
+double _numberPoints(
+    double v, double target, double mult, int level, RewardCurve curve) {
+  if (target <= 0) return 0.0;
+  final p = v / target;
+  final double base;
+  if (p >= 1) {
+    base = mult;
+  } else if (curve == RewardCurve.exponential) {
+    base = mult * math.pow(p, 1 + _expPolar * level).toDouble();
+  } else {
+    base = mult * p;
+  }
+  final over = p > 1 ? (p - 1).clamp(0.0, _overRewardCap) : 0.0;
+  return base + mult * over;
+}
 
 /// Campana dell'astinenza: cresce nella fase critica (picco a n=tau), poi cala.
 double _bell(int n, int tau, double mult) {
@@ -245,9 +250,7 @@ extension SabusScoring on AppData {
     if (t.kind == TaskKind.complete) return m;
     if (t.kind == TaskKind.maintenance) return m;
     if (t.kind == TaskKind.abstinence) return _bell(derivedStreak(t), t.tau, m);
-    return t.reward == RewardCurve.exponential
-        ? _expPoints(t.target, m)
-        : _linPoints(t.target, m);
+    return m; // un number a target vale come una checklist, qualunque target
   }
 
   /// Punti effettivi del giorno. Sotto soglia = 0; al target = numK*target;
@@ -262,7 +265,7 @@ extension SabusScoring on AppData {
       return v == 0 ? _bell(derivedStreak(t, asOf: day), t.tau, m) : 0.0;
     }
     if (t.target <= 0) return 0.0;
-    return t.reward == RewardCurve.exponential ? _expPoints(v, m) : _linPoints(v, m);
+    return _numberPoints(v, t.target, m, t.level, t.reward);
   }
 
   /// Streak reale: occorrenze consecutive "contate" dal log, da ieri all'indietro.
@@ -414,10 +417,14 @@ extension SabusScoring on AppData {
   double pointsAtValue(Task t, double v) {
     if (t.kind != TaskKind.measure || t.target <= 0 || v < 0) return 0;
     final m = sabusMult(t);
-    return t.reward == RewardCurve.exponential
-        ? _expPoints(v, m)
-        : _linPoints(v, m);
+    return _numberPoints(v, t.target, m, t.level, t.reward);
   }
+
+  /// Valore della campana dell'astinenza in un dato giorno (quanto paga stare puliti).
+  double abstinenceRewardOn(Task t, DateTime day) =>
+      t.kind == TaskKind.abstinence
+          ? _bell(derivedStreak(t, asOf: day), t.tau, sabusMult(t))
+          : 0.0;
 
   /// Serie giornaliera del valore registrato per una task (per il plot dei number).
   /// null sui giorni in cui la task non è prevista.
