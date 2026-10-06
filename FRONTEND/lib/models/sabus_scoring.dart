@@ -4,11 +4,24 @@ import '../data/dates.dart';
 import 'app_data.dart';
 import 'models.dart';
 
+/// Logica di punteggio di Sabus, iniettata sul modello di WAY (additiva):
+/// punti con moltiplicatore di livello, number nerfato (al target = 0.5*target;
+/// l'esponenziale premia le unità e accelera oltre il target), bonus da streak,
+/// e streak DERIVATO dal log. Non tocca percentOf/dayScore esistenti.
+// ---- Costanti number (tarabili) ----
+const double _numBase = 2.0;       // un number a target vale 2x una checklist
 const double _expPolar = 0.4;      // polarizzazione della curva number col livello
 const double _overRewardCap = 0.3; // extra massimo dal superamento del target
+// ---- Costanti astinenza ----
 const double _absFloor = 0.3;   // reward minimo di mantenimento
 const double _absPeak = 3.0;    // reward massimo al picco della campana
 
+/// Punti di un number: curva su p = v/target (normalizzata sul PROPRIO target).
+/// - a target (p>=1) vale `mult` (comparabile a una checklist, qualunque target);
+/// - sotto target: lineare (m*p) oppure polarizzata (m*p^k, k=1+alpha*level)
+///   per l'esponenziale -> salendo di livello i valori bassi rendono sempre meno
+///   e il grosso del reward si concentra vicino al target;
+/// - sopra target: piccolo extra cappato (il superamento non e' il focus).
 double _numberPoints(
     double v, double target, double mult, int level, RewardCurve curve) {
   if (target <= 0) return 0.0;
@@ -22,7 +35,7 @@ double _numberPoints(
     base = mult * p;
   }
   final over = p > 1 ? (p - 1).clamp(0.0, _overRewardCap) : 0.0;
-  return base + mult * over;
+  return _numBase * (base + mult * over);
 }
 
 /// Campana dell'astinenza: cresce nella fase critica (picco a n=tau), poi cala.
@@ -250,7 +263,7 @@ extension SabusScoring on AppData {
     if (t.kind == TaskKind.complete) return m;
     if (t.kind == TaskKind.maintenance) return m;
     if (t.kind == TaskKind.abstinence) return _bell(derivedStreak(t), t.tau, m);
-    return m; // un number a target vale come una checklist, qualunque target
+    return _numBase * m; // number a target: buffato rispetto alla checklist
   }
 
   /// Punti effettivi del giorno. Sotto soglia = 0; al target = numK*target;
