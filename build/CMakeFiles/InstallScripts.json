@@ -1,0 +1,12 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/ASUS/Downloads/sabus_mobile/sabus_mobile/build/cmake_install.cmake",
+		"C:/Users/ASUS/Downloads/sabus_mobile/sabus_mobile/build/flutter/cmake_install.cmake",
+		"C:/Users/ASUS/Downloads/sabus_mobile/sabus_mobile/build/runner/cmake_install.cmake",
+		"C:/Users/ASUS/Downloads/sabus_mobile/sabus_mobile/build/plugins/flutter_timezone/cmake_install.cmake",
+		"C:/Users/ASUS/Downloads/sabus_mobile/sabus_mobile/build/plugins/jni/cmake_install.cmake",
+		"C:/Users/ASUS/Downloads/sabus_mobile/sabus_mobile/build/plugins/jni/shared/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

@@ -32,7 +32,6 @@ class HomeScreen extends ConsumerWidget {
     final today = Dates.today();
 
     final beforeTask = data.percentOf(task, today);
-    final beforeValue = data.valueOf(task, today);
     final beforeDay = data.dayPercentSabus(today) ?? 0;
 
     ref.read(appProvider.notifier).setValue(task, value, day: today);
@@ -519,10 +518,7 @@ class _ExecutionRow extends ConsumerWidget {
     final step = task.target >= 20 ? 5.0 : (task.target >= 8 ? 1.0 : 0.5);
     final evolve = evolveControl(context, ref, task, data);
     final measure = task.kind == TaskKind.measure;
-    final gain = measure
-        ? data.pointsAtValue(task, value + step) -
-            data.pointsAtValue(task, value)
-        : 0.0;
+    final earned = measure ? data.taskPoints(task, day) : 0.0;
 
     return Container(
       key: taskAnchorKey(task.id),
@@ -565,9 +561,9 @@ class _ExecutionRow extends ConsumerWidget {
                       onCommit((value - step).clamp(0, double.infinity)),
                   onPlus: () => onCommit(value + step),
                 ),
-                if (gain > 0) ...[
+                if (earned > 0) ...[
                   const SizedBox(height: 3),
-                  Text('+${gain.toStringAsFixed(1)}',
+                  Text('+${earned.toStringAsFixed(1)}',
                       style: WayFonts.mono(size: 9, color: c.accent)),
                 ],
               ]),

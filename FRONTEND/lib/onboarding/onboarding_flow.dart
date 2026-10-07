@@ -49,7 +49,6 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     final stage = ref.watch(onboardingProvider).stage;
     final data = ref.watch(appProvider);
     final ctrl = ref.read(appProvider.notifier);
-    final c = context.c;
 
     if (!active) return const SizedBox.shrink();
 

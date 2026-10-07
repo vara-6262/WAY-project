@@ -44,15 +44,19 @@ class _SmoothLineChartState extends State<SmoothLineChart> {
     final nums = widget.values.whereType<double>().toList();
     final maxData = nums.isEmpty ? 1.0 : nums.reduce((a, b) => a > b ? a : b);
     final minData = nums.isEmpty ? 0.0 : nums.reduce((a, b) => a < b ? a : b);
-    // Asse Y normalizzato sul range reale dei dati (non da 0): valorizza la curva.
+    // Asse Y normalizzato sul range dei dati, ma includendo sempre la guida
+    // (linea target / 100%) cosi' resta sempre visibile.
+    final g = widget.guide;
+    final lo = g != null ? (minData < g ? minData : g) : minData;
+    final hi = g != null ? (maxData > g ? maxData : g) : maxData;
     final double yMin, yMax;
-    if ((maxData - minData).abs() < 1e-9) {
-      yMin = minData - 1;
-      yMax = maxData + 1;
+    if ((hi - lo).abs() < 1e-9) {
+      yMin = lo - 1;
+      yMax = hi + 1;
     } else {
-      final margin = (maxData - minData) * 0.15;
-      yMin = minData - margin;
-      yMax = maxData + margin;
+      final margin = (hi - lo) * 0.15;
+      yMin = lo - margin;
+      yMax = hi + margin;
     }
 
     return Column(

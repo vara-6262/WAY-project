@@ -424,31 +424,6 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
     );
   }
 
-  Widget _scaleKey(
-    BuildContext context,
-    IconData icon,
-    bool enabled,
-    VoidCallback onTap,
-  ) {
-    final c = context.c;
-    return Opacity(
-      opacity: enabled ? 1 : 0.35,
-      child: Material(
-        color: c.surface3,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: enabled ? onTap : null,
-          child: SizedBox(
-            width: 36,
-            height: 36,
-            child: Icon(icon, size: 18, color: c.ink),
-          ),
-        ),
-      ),
-    );
-  }
-
   // --- 6 · criteri ----------------------------------------------------------
 
   Widget _criteriaBody() {
@@ -642,55 +617,3 @@ class _CurvePainter extends CustomPainter {
   bool shouldRepaint(_CurvePainter old) => old.exponential != exponential;
 }
 
-class _SliderRow extends StatelessWidget {
-  const _SliderRow({
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
-
-  final String label;
-  final double value;
-  final String unit;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label,
-                  style: WayFonts.ui(
-                      size: 12.5, weight: FontWeight.w700, color: c.ink)),
-              Text(
-                '${fmtNum(value)}${unit.isEmpty ? '' : ' $unit'}',
-                style: WayFonts.mono(
-                    size: 13, weight: FontWeight.w700, color: c.accent),
-              ),
-            ],
-          ),
-          Slider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            divisions: divisions > 0 ? divisions : null,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
-}

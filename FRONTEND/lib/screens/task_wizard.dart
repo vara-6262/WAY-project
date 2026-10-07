@@ -371,62 +371,6 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
   }
 }
 
-class _SliderRow extends StatelessWidget {
-  const _SliderRow({
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
-
-  final String label;
-  final double value;
-  final String unit;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    final shown = value == value.roundToDouble()
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(1);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: WayFonts.ui(size: 12.5, weight: FontWeight.w600, color: c.ink),
-              ),
-              Text(
-                '$shown ${unit.trim()}',
-                style: WayFonts.mono(size: 13, weight: FontWeight.w600, color: c.accent),
-              ),
-            ],
-          ),
-          Slider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _KindOption extends StatelessWidget {
   const _KindOption({
     required this.title,

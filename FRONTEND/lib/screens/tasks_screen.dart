@@ -5,7 +5,6 @@ import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../fx/anchors.dart';
-import '../models/app_data.dart' show OnboardingStage;
 import '../sheets/sheets.dart';
 import 'first_run_wizard.dart';
 import '../state/providers.dart';

@@ -11,7 +11,6 @@ import 'models.dart';
 // ---- Costanti number (tarabili) ----
 const double _numBase = 2.0;       // un number a target vale 2x una checklist
 const double _expPolar = 0.4;      // polarizzazione della curva number col livello
-const double _overRewardCap = 0.3; // extra massimo dal superamento del target
 // ---- Costanti astinenza ----
 const double _absFloor = 0.3;   // reward minimo di mantenimento
 const double _absPeak = 3.0;    // reward massimo al picco della campana
@@ -34,7 +33,9 @@ double _numberPoints(
   } else {
     base = mult * p;
   }
-  final over = p > 1 ? (p - 1).clamp(0.0, _overRewardCap) : 0.0;
+  // Oltre il target: lineare pieno, senza cap ne' accelerazione.
+  // Sforare paga sempre, ma non da' nulla di speciale (streak/curva invariate).
+  final over = p > 1 ? (p - 1) : 0.0;
   return _numBase * (base + mult * over);
 }
 

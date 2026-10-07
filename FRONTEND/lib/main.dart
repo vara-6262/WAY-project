@@ -14,13 +14,9 @@ Future<void> main() async {
   ]);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
+    statusBarIconBrightness: Brightness.light,
     statusBarBrightness: Brightness.dark,
   ));
-
-  // I dati vengono letti prima del primo frame e iniettati con un override:
-  // il controller resta sincrono e l'app non parte mai da uno stato vuoto
-  // che poi cambia sotto gli occhi.
   final prefs = await SharedPreferences.getInstance();
   final boot = Bootstrap.load(prefs);
 
