@@ -132,12 +132,13 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 18),
-        _TodayCard(
+        _FlipTopCard(
           score: score,
           done: done,
           total: scheduled.length,
           place: place,
           onOpenPlaces: onOpenPlaces,
+          data: data,
         ),
         const SizedBox(height: 12),
         const _ScoreBar(),
@@ -157,7 +158,7 @@ class HomeScreen extends ConsumerWidget {
             Expanded(
               child: Segmented<HomeFilter>(
                 values: HomeFilter.values,
-                labels: const ['Disponibili', 'Mancanti', 'Tutte'],
+                labels: const ['Disponibili', 'Tutte'],
                 selected: filter,
                 onChanged: (f) =>
                     ref.read(homeFilterProvider.notifier).state = f,
@@ -219,8 +220,6 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
         const SizedBox(height: 22),
-        const SectionLabel('Andamento'),
-        _TrendSection(data: data),
       ],
     );
   }
@@ -316,6 +315,151 @@ class _TodayCard extends StatelessWidget {
   }
 }
 
+/// Grafico "andamento" per il lato retro della card in alto, con selettore
+/// del timeframe (settimana/mese/anno).
+class _ChartGlance extends ConsumerWidget {
+  const _ChartGlance({required this.data});
+
+  final AppData data;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final today = Dates.today();
+    final values = <double?>[];
+    final labels = <String>[];
+    switch (data.range) {
+      case TrendRange.week:
+        for (var i = 6; i >= 0; i--) {
+          final day = Dates.addDays(today, -i);
+          values.add(data.dayPercentSabus(day)?.toDouble());
+          labels.add(Dates.dayShort[Dates.weekdayIndex(day)]);
+        }
+      case TrendRange.month:
+        for (var i = 29; i >= 0; i--) {
+          final day = Dates.addDays(today, -i);
+          values.add(data.dayPercentSabus(day)?.toDouble());
+          labels.add(i % 7 == 0 ? '${day.day}' : '');
+        }
+      case TrendRange.year:
+        for (var m = 11; m >= 0; m--) {
+          final month = DateTime(today.year, today.month - m, 1);
+          final days = DateTime(month.year, month.month + 1, 0).day;
+          var sum = 0.0;
+          var n = 0;
+          for (var d = 1; d <= days; d++) {
+            final day = DateTime(month.year, month.month, d);
+            if (day.isAfter(today)) break;
+            final pv = data.dayPercentSabus(day);
+            if (pv != null) {
+              sum += pv;
+              n++;
+            }
+          }
+          values.add(n == 0 ? null : sum / n);
+          labels.add(Dates.months[month.month - 1]
+              .substring(0, 1)
+              .toUpperCase());
+        }
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+      decoration: BoxDecoration(
+        color: c.surface2,
+        border: Border.all(color: c.lineSoft),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 30), // spazio per l'icona flip
+          child: Text('ANDAMENTO',
+              style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+        ),
+        const SizedBox(height: 10),
+        Segmented<TrendRange>(
+          values: TrendRange.values,
+          labels: TrendRange.values.map((r) => r.label).toList(),
+          selected: data.range,
+          onChanged: (r) => ref.read(appProvider.notifier).setRange(r),
+        ),
+        const SizedBox(height: 12),
+        SmoothLineChart(
+          values: values,
+          labels: labels,
+          guide: 100,
+          height: 86,
+          format: (v) => '${v.round()}%',
+        ),
+      ]),
+    );
+  }
+}
+/// Card in alto che alterna "oggi" (anello + ambiente) e "andamento" (grafico)
+/// al tap. Mostra una sola info alla volta, elimina la duplicazione col Trend.
+class _FlipTopCard extends StatefulWidget {
+  const _FlipTopCard({
+    required this.score,
+    required this.done,
+    required this.total,
+    required this.place,
+    required this.onOpenPlaces,
+    required this.data,
+  });
+
+  final int score;
+  final int done;
+  final int total;
+  final Place? place;
+  final VoidCallback onOpenPlaces;
+  final AppData data;
+
+  @override
+  State<_FlipTopCard> createState() => _FlipTopCardState();
+}
+
+class _FlipTopCardState extends State<_FlipTopCard> {
+  bool _chart = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final body = _chart
+        ? _ChartGlance(data: widget.data)
+        : _TodayCard(
+            score: widget.score,
+            done: widget.done,
+            total: widget.total,
+            place: widget.place,
+            onOpenPlaces: widget.onOpenPlaces,
+          );
+    return GestureDetector(
+      onTap: () => setState(() => _chart = !_chart),
+      child: Stack(children: [
+        body,
+        Positioned(
+          top: 14,
+          right: 16,
+          child: IgnorePointer(
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: c.surface3,
+                border: Border.all(color: c.line),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _chart ? Icons.today_outlined : Icons.insights_outlined,
+                size: 14,
+                color: c.accent,
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
 class _ReviewBanner extends StatelessWidget {
   const _ReviewBanner({required this.onOpen});
   final VoidCallback onOpen;
@@ -363,8 +507,13 @@ class _MaintenanceRow extends ConsumerWidget {
     final compromised = mask != 0;
     final evolve = evolveControl(context, ref, task, data);
     bool broken(int i) => (mask & (1 << i)) != 0;
+    final expanded = ref.watch(expandedCardsProvider).contains(task.id);
+    final up = expanded ? _upgradeLine(context, data, task) : null;
 
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _toggleExpanded(ref, task.id),
+      child: Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: compromised ? c.hardTint : c.surface2,
@@ -382,7 +531,11 @@ class _MaintenanceRow extends ConsumerWidget {
                 children: [
                   _nameRow(context, task),
                   const SizedBox(height: 7),
-                  _progressLine(context, data, task),
+                  _compressedLine(context, data, task, day),
+                  if (up != null) ...[
+                    const SizedBox(height: 6),
+                    up,
+                  ],
                 ]),
           ),
           const SizedBox(width: 10),
@@ -425,6 +578,7 @@ class _MaintenanceRow extends ConsumerWidget {
           ]),
         ],
       ]),
+    ),
     );
   }
 }
@@ -519,8 +673,13 @@ class _ExecutionRow extends ConsumerWidget {
     final evolve = evolveControl(context, ref, task, data);
     final measure = task.kind == TaskKind.measure;
     final earned = measure ? data.taskPoints(task, day) : 0.0;
+    final expanded = ref.watch(expandedCardsProvider).contains(task.id);
+    final up = expanded ? _upgradeLine(context, data, task) : null;
 
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _toggleExpanded(ref, task.id),
+      child: Container(
       key: taskAnchorKey(task.id),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
@@ -542,7 +701,11 @@ class _ExecutionRow extends ConsumerWidget {
                         : null,
                     dim: complete),
                 const SizedBox(height: 7),
-                _progressLine(context, data, task),
+                _compressedLine(context, data, task, day),
+                if (up != null) ...[
+                  const SizedBox(height: 6),
+                  up,
+                ],
               ]),
         ),
         const SizedBox(width: 10),
@@ -568,128 +731,12 @@ class _ExecutionRow extends ConsumerWidget {
                 ],
               ]),
       ]),
+    ),
     );
   }
 }
 
 
-class _TrendSection extends ConsumerWidget {
-  const _TrendSection({required this.data});
-
-  final AppData data;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.c;
-    final today = Dates.today();
-    final values = <int?>[];
-    final labels = <String>[];
-
-    switch (data.range) {
-      case TrendRange.week:
-        for (var i = 6; i >= 0; i--) {
-          final day = Dates.addDays(today, -i);
-          values.add(data.dayPercentSabus(day));
-          labels.add(Dates.dayShort[Dates.weekdayIndex(day)]);
-        }
-        break;
-      case TrendRange.month:
-        for (var i = 29; i >= 0; i--) {
-          final day = Dates.addDays(today, -i);
-          values.add(data.dayPercentSabus(day));
-          labels.add(i % 7 == 0 ? '${day.day}' : '');
-        }
-        break;
-      case TrendRange.year:
-        for (var m = 11; m >= 0; m--) {
-          final ref0 = DateTime(today.year, today.month - m, 1);
-          var sum = 0;
-          var count = 0;
-          for (var d = 1; d <= 28; d++) {
-            final day = DateTime(ref0.year, ref0.month, d);
-            if (day.isAfter(today)) break;
-            final s = data.dayPercentSabus(day);
-            if (s != null) {
-              sum += s;
-              count++;
-            }
-          }
-          values.add(count == 0 ? null : (sum / count).round());
-          labels.add(Dates.months[ref0.month - 1][0].toUpperCase());
-        }
-        break;
-    }
-
-    final valid = values.whereType<int>().toList();
-    final average = valid.isEmpty
-        ? 0
-        : (valid.reduce((a, b) => a + b) / valid.length).round();
-    final overHundred = valid.where((v) => v >= 100).length;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Segmented<TrendRange>(
-          values: TrendRange.values,
-          labels: TrendRange.values.map((r) => r.label).toList(),
-          selected: data.range,
-          onChanged: (r) => ref.read(appProvider.notifier).setRange(r),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.fromLTRB(14, 16, 14, 12),
-          decoration: BoxDecoration(
-            color: c.surface2,
-            border: Border.all(color: c.lineSoft),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SmoothLineChart(
-                values: values.map((v) => v?.toDouble()).toList(),
-                labels: labels,
-                guide: 100,
-                format: (v) => '${v.round()}%',
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.only(top: 11),
-                decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: c.line)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('MEDIA PERIODO',
-                            style: WayFonts.label(color: c.inkFaint, size: 9)),
-                        Text('$average%',
-                            style: WayFonts.display(size: 17, color: c.accent)),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('GIORNI ≥ 100%',
-                            style: WayFonts.label(color: c.inkFaint, size: 9)),
-                        Text('$overHundred/${valid.length}',
-                            style: WayFonts.display(size: 17, color: c.accent)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 
 /// Pulsante d'azione (Level up / Rivedi / Archivia) da mostrare nella card al
@@ -804,15 +851,16 @@ class _ScoreBar extends ConsumerWidget {
     final data = ref.watch(appProvider);
     final today = Dates.today();
     final b = data.dayBreakdown(today);
-    final core = b.active + b.eco; // punti reali (fatto + mantenimento)
-    final total = core + b.bonus;
+    final barTotal = b.active + b.maint; // cio' che va nella barra (da task)
+    final total = barTotal + b.eco + b.bonus;
     if (total <= 0) return const SizedBox.shrink();
 
     final segs = <(String, double, Color)>[
       ('Fatto', b.active, c.accent),
-      ('Mantenimento', b.eco, c.media),
+      ('Mantenimento', b.maint, c.media),
     ].where((s) => s.$2 > 0).toList();
-    final bonusPct = (data.dayBonusFraction(today) * 100).round();
+    final hasBonus = b.bonus > 0.001;
+    final hasEco = b.eco > 0.001;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -826,20 +874,32 @@ class _ScoreBar extends ConsumerWidget {
           Text('COMPOSIZIONE PUNTEGGIO',
               style: WayFonts.label(color: c.inkFaint, size: 9)),
           const Spacer(),
-          if (bonusPct > 0) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              decoration: BoxDecoration(
-                color: c.easyTint,
-                borderRadius: BorderRadius.circular(999),
+          if (hasEco) ...[
+            _FlashPill(
+              color: c.media,
+              tint: c.mediaTint,
+              onTap: () => _showFlashInfo(
+                context,
+                color: c.media,
+                title: 'Eco',
+                body: 'Stai ricevendo punti da abitudini completate in '
+                    'precedenza che oggi non sono in programma: il loro '
+                    'merito continua a contare per qualche giorno.',
               ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.bolt, size: 11, color: c.easy),
-                const SizedBox(width: 1),
-                Text('+$bonusPct%',
-                    style: WayFonts.mono(
-                        size: 9.5, weight: FontWeight.w700, color: c.easy)),
-              ]),
+            ),
+            const SizedBox(width: 6),
+          ],
+          if (hasBonus) ...[
+            _FlashPill(
+              color: c.easy,
+              tint: c.easyTint,
+              onTap: () => _showFlashInfo(
+                context,
+                color: c.easy,
+                title: 'Bonus costanza',
+                body: 'Stai ricevendo un extra per la costanza delle tue '
+                    'abitudini (streak attive).',
+              ),
             ),
             const SizedBox(width: 8),
           ],
@@ -852,22 +912,22 @@ class _ScoreBar extends ConsumerWidget {
             height: 8,
             child: LayoutBuilder(builder: (ctx, cons) {
               final w = cons.maxWidth;
-              final activeW = core > 0 ? w * (b.active / core) : 0.0;
-              final ecoW = core > 0 ? w * (b.eco / core) : 0.0;
+              final aW = barTotal > 0 ? w * (b.active / barTotal) : 0.0;
+              final mW = barTotal > 0 ? w * (b.maint / barTotal) : 0.0;
               return ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: Stack(children: [
                   Positioned.fill(child: ColoredBox(color: c.surface3)),
-                  if (activeW > 0)
+                  if (aW > 0)
                     Positioned(
                       left: 0, top: 0, bottom: 0,
-                      width: activeW,
+                      width: aW,
                       child: ColoredBox(color: c.accent),
                     ),
-                  if (ecoW > 0)
+                  if (mW > 0)
                     Positioned(
-                      left: activeW, top: 0, bottom: 0,
-                      width: ecoW,
+                      left: aW, top: 0, bottom: 0,
+                      width: mW,
                       child: ColoredBox(color: c.media),
                     ),
                 ]),
@@ -894,6 +954,49 @@ class _ScoreBar extends ConsumerWidget {
   }
 }
 
+/// Fulmine cliccabile usato per segnalare bonus (verde) ed eco (blu).
+class _FlashPill extends StatelessWidget {
+  const _FlashPill(
+      {required this.color, required this.tint, required this.onTap});
+  final Color color;
+  final Color tint;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+        child: Icon(Icons.bolt, size: 13, color: color),
+      ),
+    );
+  }
+}
+
+void _showFlashInfo(BuildContext context,
+    {required String title, required String body, required Color color}) {
+  final c = context.c;
+  showDialog<void>(
+    context: context,
+    builder: (dctx) => AlertDialog(
+      backgroundColor: c.surface2,
+      title: Row(children: [
+        Icon(Icons.bolt, size: 18, color: color),
+        const SizedBox(width: 8),
+        Text(title, style: WayFonts.display(size: 16, color: c.ink)),
+      ]),
+      content: Text(body, style: WayFonts.ui(size: 13, color: c.inkSoft)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dctx).pop(),
+          child: Text('OK', style: WayFonts.ui(size: 13, color: c.accent)),
+        ),
+      ],
+    ),
+  );
+}
 
 
 
@@ -934,39 +1037,95 @@ Widget _nameRow(BuildContext context, Task task, {String? trailing, bool dim = f
 }
 
 /// Riga progressione: streak + barra-regalo verso l'upgrade + quanto manca + regalo.
-Widget _progressLine(BuildContext context, AppData data, Task task) {
+void _toggleExpanded(WidgetRef ref, String id) {
+  final n = ref.read(expandedCardsProvider.notifier);
+  final s = {...n.state};
+  if (!s.remove(id)) s.add(id);
+  n.state = s;
+}
+
+/// Barra di completamento (progresso verso il target) per i number.
+class _CompletionBar extends StatelessWidget {
+  const _CompletionBar({required this.fraction, required this.color});
+  final double fraction;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final f = fraction.clamp(0.0, 1.0);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: 6,
+        child: LayoutBuilder(builder: (ctx, cons) {
+          final w = cons.maxWidth;
+          return Stack(children: [
+            Positioned.fill(
+                child: ColoredBox(color: c.inkFaint.withValues(alpha: 0.18))),
+            if (f > 0)
+              Positioned(
+                left: 0, top: 0, bottom: 0,
+                width: w * f,
+                child: ColoredBox(color: color),
+              ),
+          ]);
+        }),
+      ),
+    );
+  }
+}
+
+/// Riga COMPRESSA (breve termine): streak + barra di completamento per i
+/// number; per le altre solo lo streak.
+Widget _compressedLine(
+    BuildContext context, AppData data, Task task, DateTime day) {
   final c = context.c;
   final streak = data.derivedStreak(task);
-  final upgradeable = task.kind != TaskKind.abstinence && !task.archived;
-  final base = data.upgradeBase(task);
-  final eff = data.upgradeThreshold(task);
-  final rem = data.upgradeRemaining(task);
-  final gift = base - eff;
+  final measure = task.kind == TaskKind.measure;
   return Row(children: [
     Icon(Icons.local_fire_department,
         size: 12, color: streak > 0 ? c.accent : c.inkFaint),
     const SizedBox(width: 3),
     Text('$streak', style: WayFonts.mono(size: 10.5, color: c.inkSoft)),
     const SizedBox(width: 9),
-    if (upgradeable && !data.upgradeReady(task)) ...[
+    if (measure)
       Expanded(
-        child: _GiftBar(
-            succ: streak,
-            effective: eff,
-            base: base,
-            color: c.accent,
-            gift: c.easy),
-      ),
-      const SizedBox(width: 8),
-      Text('↑$rem',
-          style:
-              WayFonts.mono(size: 10, weight: FontWeight.w700, color: c.accent)),
-      if (gift > 0) ...[
-        const SizedBox(width: 5),
-        Text('+$gift', style: WayFonts.mono(size: 10, color: c.easy)),
-      ],
-    ] else
+        child: _CompletionBar(
+            fraction: data.percentOf(task, day) / 100, color: c.accent),
+      )
+    else
       const Spacer(),
+  ]);
+}
+
+/// Riga ESTESA (lungo termine): barra di upgrade. Null se non pertinente.
+Widget? _upgradeLine(BuildContext context, AppData data, Task task) {
+  final c = context.c;
+  final upgradeable = task.kind != TaskKind.abstinence && !task.archived;
+  if (!upgradeable || data.upgradeReady(task)) return null;
+  final base = data.upgradeBase(task);
+  final eff = data.upgradeThreshold(task);
+  final rem = data.upgradeRemaining(task);
+  final gift = base - eff;
+  final streak = data.derivedStreak(task);
+  return Row(children: [
+    Expanded(
+      child: _GiftBar(
+          succ: streak,
+          effective: eff,
+          base: base,
+          color: c.accent,
+          gift: c.easy),
+    ),
+    const SizedBox(width: 8),
+    Text('↑$rem',
+        style:
+            WayFonts.mono(size: 10, weight: FontWeight.w700, color: c.accent)),
+    if (gift > 0) ...[
+      const SizedBox(width: 5),
+      Text('+$gift', style: WayFonts.mono(size: 10, color: c.easy)),
+    ],
   ]);
 }
 

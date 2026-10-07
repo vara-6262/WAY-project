@@ -35,12 +35,6 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
     final data = ref.watch(appProvider);
     final today = Dates.today();
 
-    // ---- serie percentuale Sabus ----
-    final (pctValues, pctLabels) = _percentSeries(data, data.range, today);
-    final valid = pctValues.whereType<double>().toList();
-    final average = valid.isEmpty ? 0 : (valid.reduce((a, b) => a + b) / valid.length).round();
-    final over = valid.where((v) => v >= 100).length;
-
     final pts = data.dayPoints(today);
     final bonusPct = (data.dayBonusFraction(today) * 100).round();
     final percentToday = data.dayPercentSabus(today);
@@ -56,8 +50,16 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
 
     // ---- forti / da curare ----
     final scored = [for (final t in data.tasks) (task: t, s: data.taskStrength(t))];
+    // Una task appena ripartita (upgrade/reconfig/mantieni recente) non e'
+    // "da curare": e' normale che lo streak sia basso. Periodo di grazia 5g.
+    bool justReset(Task t) {
+      final ss = t.streakSince;
+      if (ss == null) return false;
+      return Dates.today().difference(Dates.dayOf(ss)).inDays < 5;
+    }
     final strong = [...scored]..sort((a, b) => b.s.compareTo(a.s));
-    final weak = [...scored]..sort((a, b) => a.s.compareTo(b.s));
+    final weak = [...scored.where((e) => !justReset(e.task))]
+      ..sort((a, b) => a.s.compareTo(b.s));
 
     // ---- analisi number ----
     final numberTasks = data.tasks.where((t) => t.kind == TaskKind.measure).toList();
@@ -98,30 +100,6 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // andamento percentuale
-              const SectionLabel('Andamento'),
-              const SizedBox(height: 8),
-              Segmented<TrendRange>(
-                values: TrendRange.values,
-                labels: TrendRange.values.map((r) => r.label).toList(),
-                selected: data.range,
-                onChanged: (r) => ref.read(appProvider.notifier).setRange(r),
-              ),
-              const SizedBox(height: 10),
-              _panel(context, [
-                SmoothLineChart(values: pctValues, labels: pctLabels, guide: 100,
-                    format: (v) => '${v.round()}%'),
-                const SizedBox(height: 10),
-                _footRow(context, 'MEDIA', '$average%', 'GIORNI ≥ 100%', '$over/${valid.length}'),
-                const SizedBox(height: 6),
-                Text(
-                  'Punteggio Sabus: completamento pesato per livello e bonus '
-                  '(può superare 100%). Diverso dal “fatte su previste” della Home.',
-                  style: WayFonts.mono(size: 9, color: context.c.inkFaint),
-                ),
-              ]),
-              const SizedBox(height: 22),
 
               // streak in corso
               const SectionLabel('Streak in corso'),
@@ -189,6 +167,13 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
                 selected: _mode,
                 onChanged: (m) => setState(() => _mode = m),
               ),
+              const SizedBox(height: 8),
+              Segmented<TrendRange>(
+                values: TrendRange.values,
+                labels: TrendRange.values.map((r) => r.label).toList(),
+                selected: data.range,
+                onChanged: (r) => ref.read(appProvider.notifier).setRange(r),
+              ),
               const SizedBox(height: 10),
               if (_mode == _AnalysisMode.number) ...[
                 if (numberTasks.isEmpty)
@@ -250,7 +235,7 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
       const SizedBox(height: 10),
       _footRow(context, 'MEDIA', _num(avg), 'MASSIMO', _num(peak)),
       const SizedBox(height: 4),
-      Text('Linea tratteggiata = target (${_num(task.target)}).',
+      Text('-- target ${_num(task.target)}',
           style: WayFonts.mono(size: 9, color: c.inkFaint)),
     ]);
   }
@@ -293,24 +278,6 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
   }
 
   // ---------- helpers serie ----------
-  (List<double?>, List<String>) _percentSeries(AppData data, TrendRange range, DateTime today) {
-    switch (range) {
-      case TrendRange.week:
-        final days = _daysBack(7, today);
-        return (
-          [for (final d in days) data.dayPercentSabus(d)?.toDouble()],
-          [for (final d in days) Dates.dayShort[Dates.weekdayIndex(d)]],
-        );
-      case TrendRange.month:
-        final days = _daysBack(30, today);
-        return (
-          [for (final d in days) data.dayPercentSabus(d)?.toDouble()],
-          [for (var i = 0; i < days.length; i++) i % 7 == 0 ? '${days[i].day}' : ''],
-        );
-      case TrendRange.year:
-        return _monthly(today, (d) => data.dayPercentSabus(d)?.toDouble());
-    }
-  }
 
   /// Serie per task misura/astinenza: SOLO i giorni di dominio (niente buchi).
   (List<double?>, List<String>) _domainSeries(

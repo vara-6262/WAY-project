@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../data/dates.dart';
 import '../data/seed.dart';
 import '../models/app_data.dart';
@@ -490,5 +492,8 @@ final notificationsProvider = Provider<NotificationService>(
 );
 
 /// Filtro selezionato nella Home (sessione, non persistito).
+/// Id delle card attualmente espanse in Home (mostrano la barra upgrade).
+final expandedCardsProvider = StateProvider<Set<String>>((ref) => <String>{});
+
 final homeFilterProvider =
     StateProvider<HomeFilter>((ref) => HomeFilter.disponibili);

@@ -211,8 +211,6 @@ extension SabusScoring on AppData {
               !weeklySatisfied(t) &&
               !isDone(t) &&
               inWindowNow(t);
-        case HomeFilter.mancanti:
-          return !hiddenSet.contains(t.id) && !weeklySatisfied(t) && !isDone(t);
         case HomeFilter.tutte:
           return true;
       }
@@ -398,24 +396,22 @@ extension SabusScoring on AppData {
   }
 
   /// Scomposizione del punteggio del giorno: occorrenze, mantenimento (eco), bonus.
-  ({double active, double eco, double bonus}) dayBreakdown(DateTime day) {
-    var active = 0.0, eco = 0.0;
+  ({double active, double maint, double eco, double bonus}) dayBreakdown(
+      DateTime day) {
+    var active = 0.0, maint = 0.0, eco = 0.0;
     for (final t in tasksInScope()) {
       final e = taskDayEarned(t, day);
       if (e <= 0) continue;
-      // Passivi = punti che hai senza agire: mantenimento intatto, astinenza
-      // pulita, eco di una settimanale fuori occorrenza.
-      final passive = t.kind == TaskKind.maintenance ||
-          t.kind == TaskKind.abstinence ||
-          (isWeekly(t) && !(t.activeOn(day) && taskCounts(t, day)));
-      if (passive) {
-        eco += e;
+      if (t.kind == TaskKind.maintenance || t.kind == TaskKind.abstinence) {
+        maint += e; // passivi DA TASK: mantenimento/astinenza intatti oggi
+      } else if (isWeekly(t) && !(t.activeOn(day) && taskCounts(t, day))) {
+        eco += e; // ECO: meccanica dell'app (settimanali fuori occorrenza)
       } else {
-        active += e;
+        active += e; // fatto oggi
       }
     }
-    final bonus = (active + eco) * dayBonusFraction(day);
-    return (active: active, eco: eco, bonus: bonus);
+    final bonus = (active + maint + eco) * dayBonusFraction(day);
+    return (active: active, maint: maint, eco: eco, bonus: bonus);
   }
 
   /// Percentuale Sabus del giorno = punti*(1+bonus)/attesi*100 (può superare 100).

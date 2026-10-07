@@ -28,7 +28,7 @@ enum RewardCurve { linear, exponential }
 enum DomainPeriod { daily, weekly }
 
 /// Filtro della Home: cosa mostrare tra le task di oggi.
-enum HomeFilter { disponibili, mancanti, tutte }
+enum HomeFilter { disponibili, tutte }
 
 extension DomainPeriodLabel on DomainPeriod {
   String get label =>

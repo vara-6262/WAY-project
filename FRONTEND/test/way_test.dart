@@ -6,12 +6,12 @@ import 'package:way/models/models.dart';
 import 'package:way/screens/first_run_wizard.dart';
 
 void main() {
-  test('la difficolta segue il numero di criteri', () {
-    expect(difficultyForCriteria(0), Difficulty.easy);
-    expect(difficultyForCriteria(3), Difficulty.easy);
-    expect(difficultyForCriteria(4), Difficulty.media);
-    expect(difficultyForCriteria(7), Difficulty.media);
-    expect(difficultyForCriteria(8), Difficulty.hard);
+  test('la difficolta segue il livello', () {
+    expect(difficultyForLevel(0), Difficulty.easy);
+    expect(difficultyForLevel(1), Difficulty.easy);
+    expect(difficultyForLevel(2), Difficulty.media);
+    expect(difficultyForLevel(4), Difficulty.media);
+    expect(difficultyForLevel(5), Difficulty.hard);
   });
 
   test('la demo si serializza e torna identica', () {
