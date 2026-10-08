@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/dates.dart';
@@ -918,6 +922,24 @@ Future<void> showProfileSheet(BuildContext context, WidgetRef ref) async {
                     text: ref2.read(appProvider.notifier).exportState()));
                 showToast(context,
                     'Backup copiato — incollalo in un file per salvarlo');
+              },
+            ),
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'Condividi backup (Drive / File)',
+              onPressed: () async {
+                try {
+                  final json = ref2.read(appProvider.notifier).exportState();
+                  final dir = await getTemporaryDirectory();
+                  final f = File('${dir.path}/way_backup.json');
+                  await f.writeAsString(json);
+                  await Share.shareXFiles([XFile(f.path)],
+                      subject: 'Backup WAY');
+                } catch (_) {
+                  if (context.mounted) {
+                    showToast(context, 'Condivisione non riuscita');
+                  }
+                }
               },
             ),
             const SizedBox(height: 8),

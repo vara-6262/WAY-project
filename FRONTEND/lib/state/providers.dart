@@ -1,5 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
+
+import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -104,11 +108,36 @@ class AppController extends Notifier<AppData> {
 
   PrototypeMode get _mode => ref.read(modeProvider);
 
+  Timer? _backupTimer;
+
   void _write(AppData next) {
     state = next;
     final prefs = ref.read(prefsProvider);
     // Salvataggio non atteso: la UI non deve mai fermarsi per una scrittura.
     prefs.setString(storageKeyFor(_mode), jsonEncode(next.toJson()));
+    _scheduleAutoBackup();
+  }
+
+  /// Auto-backup su file esterno retrievable, debounced (coalescia i tap).
+  /// NB: sopravvive a crash/corruzione/reinstall, NON alla disinstallazione
+  /// (per quella serve "Condividi backup" verso Drive/File).
+  void _scheduleAutoBackup() {
+    _backupTimer?.cancel();
+    final json = exportState();
+    final mode = _mode.name;
+    _backupTimer = Timer(const Duration(seconds: 2), () {
+      unawaited(_writeExternalBackup('way_backup_$mode.json', json));
+    });
+  }
+
+  Future<void> _writeExternalBackup(String name, String content) async {
+    try {
+      final dir = await getExternalStorageDirectory();
+      if (dir == null) return;
+      await File('${dir.path}/$name').writeAsString(content, flush: true);
+    } catch (_) {
+      // storage non disponibile: l'app non deve mai rompersi per il backup.
+    }
   }
 
   void loadFor(PrototypeMode mode) {

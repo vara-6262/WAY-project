@@ -6,6 +6,7 @@ import '../theme/way_theme.dart';
 
 /// Anello della giornata. Oltre il 100% disegna un secondo arco sopra il
 /// primo, cosi' il superamento si vede invece di essere tagliato.
+/// L'arco e il numero si animano fino al nuovo valore.
 class ProgressRing extends StatelessWidget {
   const ProgressRing({super.key, required this.percent, this.size = 104});
 
@@ -15,41 +16,48 @@ class ProgressRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final noAnim = MediaQuery.of(context).disableAnimations;
     return SizedBox(
       width: size,
       height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(
-            size: Size(size, size),
-            painter: _RingPainter(
-              percent: percent,
-              track: c.surface3,
-              base: c.accent,
-              overflow: c.easy,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: percent.toDouble()),
+        duration: noAnim ? Duration.zero : const Duration(milliseconds: 520),
+        curve: Curves.easeOutCubic,
+        builder: (ctx, val, _) => Stack(
+          alignment: Alignment.center,
+          children: [
+            CustomPaint(
+              size: Size(size, size),
+              painter: _RingPainter(
+                percent: val,
+                track: c.surface3,
+                base: c.accent,
+                overflow: c.easy,
+              ),
             ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$percent',
-                style: WayFonts.display(
-                  size: 27,
-                  color: c.ink,
-                  letterSpacing: -1.1,
-                  height: 1,
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${val.round()}',
+                  style: WayFonts.display(
+                    size: 27,
+                    color: c.ink,
+                    letterSpacing: -1.1,
+                    height: 1,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '% GIORNO',
-                style: WayFonts.mono(size: 9, color: c.inkFaint, letterSpacing: 1.2),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(height: 3),
+                Text(
+                  '% GIORNO',
+                  style: WayFonts.mono(
+                      size: 9, color: c.inkFaint, letterSpacing: 1.2),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -63,7 +71,7 @@ class _RingPainter extends CustomPainter {
     required this.overflow,
   });
 
-  final int percent;
+  final double percent;
   final Color track;
   final Color base;
   final Color overflow;

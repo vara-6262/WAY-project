@@ -26,6 +26,26 @@ class HomeScreen extends ConsumerWidget {
 
   /// Un solo punto di scrittura per l'esecuzione: calcola il prima e il
   /// dopo, aggiorna, e decide quanto festeggiare.
+  Widget _taskCard(BuildContext context, WidgetRef ref, AppData data,
+      Task task, DateTime today) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: _lockedWrap(
+        !data.inWindowNow(task),
+        switch (task.kind) {
+          TaskKind.maintenance => _MaintenanceRow(task: task, day: today),
+          TaskKind.abstinence => _AbstinenceRow(task: task, day: today),
+          _ => _ExecutionRow(
+              key: ValueKey(task.id),
+              task: task,
+              day: today,
+              onCommit: (v) => _commit(ref, task, v),
+            ),
+        },
+      ),
+    );
+  }
+
   void _commit(WidgetRef ref, Task task, double value) {
     final data = ref.read(appProvider);
     final fx = ref.read(fxProvider);
@@ -192,33 +212,19 @@ class HomeScreen extends ConsumerWidget {
           )
         else
           for (final task in tasks)
-            Dismissible(
-              key: ValueKey('hide-${task.id}'),
-              direction: DismissDirection.horizontal,
-              onDismissed: (_) =>
-                  ref.read(appProvider.notifier).hideTaskToday(task.id),
-              background: _hideBackground(context, Alignment.centerLeft),
-              secondaryBackground:
-                  _hideBackground(context, Alignment.centerRight),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _lockedWrap(
-                  !data.inWindowNow(task),
-                  switch (task.kind) {
-                    TaskKind.maintenance =>
-                      _MaintenanceRow(task: task, day: today),
-                    TaskKind.abstinence =>
-                      _AbstinenceRow(task: task, day: today),
-                    _ => _ExecutionRow(
-                        key: ValueKey(task.id),
-                        task: task,
-                        day: today,
-                        onCommit: (v) => _commit(ref, task, v),
-                      ),
-                  },
-                ),
-              ),
-            ),
+            if (filter == HomeFilter.disponibili)
+              Dismissible(
+                key: ValueKey('hide-${task.id}'),
+                direction: DismissDirection.horizontal,
+                onDismissed: (_) =>
+                    ref.read(appProvider.notifier).hideTaskToday(task.id),
+                background: _hideBackground(context, Alignment.centerLeft),
+                secondaryBackground:
+                    _hideBackground(context, Alignment.centerRight),
+                child: _taskCard(context, ref, data, task, today),
+              )
+            else
+              _taskCard(context, ref, data, task, today),
         const SizedBox(height: 22),
       ],
     );
@@ -387,7 +393,7 @@ class _ChartGlance extends ConsumerWidget {
           values: values,
           labels: labels,
           guide: 100,
-          height: 86,
+          height: 140,
           format: (v) => '${v.round()}%',
         ),
       ]),
@@ -881,6 +887,7 @@ class _ScoreBar extends ConsumerWidget {
               onTap: () => _showFlashInfo(
                 context,
                 color: c.media,
+                value: b.eco,
                 title: 'Eco',
                 body: 'Stai ricevendo punti da abitudini completate in '
                     'precedenza che oggi non sono in programma: il loro '
@@ -896,6 +903,7 @@ class _ScoreBar extends ConsumerWidget {
               onTap: () => _showFlashInfo(
                 context,
                 color: c.easy,
+                value: b.bonus,
                 title: 'Bonus costanza',
                 body: 'Stai ricevendo un extra per la costanza delle tue '
                     'abitudini (streak attive).',
@@ -976,7 +984,10 @@ class _FlashPill extends StatelessWidget {
 }
 
 void _showFlashInfo(BuildContext context,
-    {required String title, required String body, required Color color}) {
+    {required String title,
+    required String body,
+    required Color color,
+    required double value}) {
   final c = context.c;
   showDialog<void>(
     context: context,
@@ -987,7 +998,17 @@ void _showFlashInfo(BuildContext context,
         const SizedBox(width: 8),
         Text(title, style: WayFonts.display(size: 16, color: c.ink)),
       ]),
-      content: Text(body, style: WayFonts.ui(size: 13, color: c.inkSoft)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(body, style: WayFonts.ui(size: 13, color: c.inkSoft)),
+          const SizedBox(height: 12),
+          Text('+${value.toStringAsFixed(1)} punti oggi',
+              style: WayFonts.mono(
+                  size: 13, weight: FontWeight.w700, color: color)),
+        ],
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dctx).pop(),
@@ -1045,6 +1066,7 @@ void _toggleExpanded(WidgetRef ref, String id) {
 }
 
 /// Barra di completamento (progresso verso il target) per i number.
+/// Il riempimento si anima fino al nuovo valore.
 class _CompletionBar extends StatelessWidget {
   const _CompletionBar({required this.fraction, required this.color});
   final double fraction;
@@ -1054,6 +1076,7 @@ class _CompletionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final f = fraction.clamp(0.0, 1.0);
+    final noAnim = MediaQuery.of(context).disableAnimations;
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
       child: SizedBox(
@@ -1063,12 +1086,19 @@ class _CompletionBar extends StatelessWidget {
           return Stack(children: [
             Positioned.fill(
                 child: ColoredBox(color: c.inkFaint.withValues(alpha: 0.18))),
-            if (f > 0)
-              Positioned(
-                left: 0, top: 0, bottom: 0,
-                width: w * f,
-                child: ColoredBox(color: color),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: f),
+                duration:
+                    noAnim ? Duration.zero : const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                builder: (ctx, val, _) =>
+                    SizedBox(width: w * val, child: ColoredBox(color: color)),
               ),
+            ),
           ]);
         }),
       ),
