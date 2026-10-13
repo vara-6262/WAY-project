@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/dates.dart';
 import '../data/glyphs.dart';
+import '../l10n/strings.dart';
 import '../models/sabus_scoring.dart';
 import 'account_screen.dart';
 import 'review_screen.dart';
@@ -106,8 +107,7 @@ class HomeScreen extends ConsumerWidget {
         scheduled.where((t) => data.percentOf(t, today) >= 100).length;
     final place = data.activePlace;
     final hour = DateTime.now().hour;
-    final greeting =
-        hour < 12 ? 'Buongiorno' : (hour < 18 ? 'Buon pomeriggio' : 'Buonasera');
+    final greeting = context.s.greeting(hour);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
@@ -129,7 +129,7 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Da cosa iniziamo oggi?',
+                    context.s.whatToStart,
                     style: WayFonts.ui(size: 12.5, color: c.inkFaint),
                   ),
                 ],
@@ -175,14 +175,14 @@ class HomeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
         ],
-        const SectionLabel('Esecuzione di oggi'),
+        SectionLabel(context.s.todayExecution),
         const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
               child: Segmented<HomeFilter>(
                 values: HomeFilter.values,
-                labels: const ['Disponibili', 'Tutte'],
+                labels: [context.s.filterAvailable, context.s.filterAll],
                 selected: filter,
                 onChanged: (f) =>
                     ref.read(homeFilterProvider.notifier).state = f,
@@ -208,11 +208,11 @@ class HomeScreen extends ConsumerWidget {
           EmptyStateBox(
             icon: Icons.checklist_outlined,
             title: scheduled.isEmpty
-                ? 'Giornata libera'
-                : 'Niente in questa vista',
+                ? context.s.freeDay
+                : context.s.nothingHere,
             body: scheduled.isEmpty
-                ? 'Oggi non è previsto nulla in questo ambiente.'
-                : 'Cambia filtro in alto per vedere le altre task di oggi.',
+                ? context.s.emptyEnvBody
+                : context.s.emptyFilterBody,
           )
         else
           for (final task in tasks)
@@ -271,13 +271,13 @@ class _TodayCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '${Dates.dayLong[Dates.weekdayIndex(today)].capitalize()}, '
-                  '${today.day} ${Dates.months[today.month - 1].capitalize()}',
+                  '${context.s.daysLong[Dates.weekdayIndex(today)]}, '
+                  '${today.day} ${context.s.months[today.month - 1]}',
                   style: WayFonts.ui(size: 11.5, color: c.inkFaint),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '$done su $total completate',
+                  context.s.doneOfTotal(done, total),
                   style: WayFonts.display(size: 16, color: c.ink),
                 ),
                 const SizedBox(height: 9),
@@ -343,7 +343,7 @@ class _ChartGlance extends ConsumerWidget {
         for (var i = 6; i >= 0; i--) {
           final day = Dates.addDays(today, -i);
           values.add(data.dayPercentSabus(day)?.toDouble());
-          labels.add(Dates.dayShort[Dates.weekdayIndex(day)]);
+          labels.add(context.s.daysShort[Dates.weekdayIndex(day)]);
         }
       case TrendRange.month:
         for (var i = 29; i >= 0; i--) {
@@ -367,7 +367,7 @@ class _ChartGlance extends ConsumerWidget {
             }
           }
           values.add(n == 0 ? null : sum / n);
-          labels.add(Dates.months[month.month - 1]
+          labels.add(context.s.months[month.month - 1]
               .substring(0, 1)
               .toUpperCase());
         }
@@ -382,7 +382,7 @@ class _ChartGlance extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Padding(
           padding: const EdgeInsets.only(right: 30), // spazio per l'icona flip
-          child: Text('ANDAMENTO',
+          child: Text(context.s.trend,
               style: WayFonts.label(color: c.inkFaint, size: 9.5)),
         ),
         const SizedBox(height: 10),
@@ -537,9 +537,9 @@ class _ReviewBanner extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Ieri — rivedi',
+              Text(context.s.yesterdayReview,
                   style: WayFonts.ui(size: 14, weight: FontWeight.w700, color: c.ink)),
-              Text('Rivaluta a mente fredda · entro stasera',
+              Text(context.s.reviewSubtitle,
                   style: WayFonts.mono(size: 10.5, color: c.inkSoft)),
             ]),
           ),
@@ -684,8 +684,10 @@ class _AbstinenceRow extends ConsumerWidget {
                   const SizedBox(width: 3),
                   Text(
                       relapsed
-                          ? 'Ricaduta oggi'
-                          : 'Pulito · ${streak}g · +${data.abstinenceRewardOn(task, day).toStringAsFixed(1)}',
+                          ? context.s.relapseToday
+                          : context.s.cleanStreak(streak,
+                              data.abstinenceRewardOn(task, day)
+                                  .toStringAsFixed(1)),
                       style: WayFonts.mono(
                           size: 10.5, color: relapsed ? c.hard : c.easy)),
                 ]),
@@ -703,7 +705,7 @@ class _AbstinenceRow extends ConsumerWidget {
                   border: Border.all(color: relapsed ? c.line : c.hard),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(relapsed ? 'Annulla' : 'Ricaduta',
+                child: Text(relapsed ? context.s.cancel : context.s.relapse,
                     style: WayFonts.mono(
                         size: 11,
                         weight: FontWeight.w700,
@@ -820,7 +822,7 @@ Widget? evolveControl(
   final c = context.c;
   if (data.abstinenceConcluded(task)) {
     return _EvolvePill(
-      label: 'Archivia',
+      label: context.s.archive,
       icon: Icons.emoji_events_outlined,
       color: c.easy,
       onTap: () => ref.read(appProvider.notifier).archiveTask(task),
@@ -828,7 +830,7 @@ Widget? evolveControl(
   }
   if (data.reconfigReady(task)) {
     return _EvolvePill(
-      label: 'Rivedi',
+      label: context.s.reconfigure,
       icon: Icons.build_outlined,
       color: c.hard,
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -838,7 +840,7 @@ Widget? evolveControl(
   }
   if (data.upgradeReady(task)) {
     return _EvolvePill(
-      label: 'Level up',
+      label: context.s.levelUp,
       icon: Icons.trending_up,
       color: c.accent,
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -912,7 +914,7 @@ Widget _hideBackground(BuildContext context, Alignment align) {
       children: [
         Icon(Icons.visibility_off_outlined, size: 18, color: c.inkFaint),
         const SizedBox(width: 6),
-        Text('Nascondi',
+        Text(context.s.hide,
             style: WayFonts.mono(
                 size: 11, weight: FontWeight.w700, color: c.inkFaint)),
       ],
@@ -943,8 +945,8 @@ class _ScoreBar extends ConsumerWidget {
     if (total <= 0) return const SizedBox.shrink();
 
     final segs = <(String, double, Color)>[
-      ('Fatto', b.active, c.accent),
-      ('Mantenimento', b.maint, c.media),
+      (context.s.scoreDone, b.active, c.accent),
+      (context.s.maintenance, b.maint, c.media),
     ].where((s) => s.$2 > 0).toList();
     final hasBonus = b.bonus > 0.001;
     final hasEco = b.eco > 0.001;
@@ -958,7 +960,7 @@ class _ScoreBar extends ConsumerWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Text('COMPOSIZIONE PUNTEGGIO',
+          Text(context.s.scoreComposition,
               style: WayFonts.label(color: c.inkFaint, size: 9)),
           const Spacer(),
           if (hasEco) ...[
@@ -969,10 +971,8 @@ class _ScoreBar extends ConsumerWidget {
                 context,
                 color: c.media,
                 value: b.eco,
-                title: 'Eco',
-                body: 'Stai ricevendo punti da abitudini completate in '
-                    'precedenza che oggi non sono in programma: il loro '
-                    'merito continua a contare per qualche giorno.',
+                title: context.s.ecoTitle,
+                body: context.s.ecoBody,
               ),
             ),
             const SizedBox(width: 6),
@@ -985,14 +985,13 @@ class _ScoreBar extends ConsumerWidget {
                 context,
                 color: c.easy,
                 value: b.bonus,
-                title: 'Bonus costanza',
-                body: 'Stai ricevendo un extra per la costanza delle tue '
-                    'abitudini (streak attive).',
+                title: context.s.bonusConstancyTitle,
+                body: context.s.bonusConstancyBody,
               ),
             ),
             const SizedBox(width: 8),
           ],
-          Text('${total.toStringAsFixed(1)} pt',
+          Text('${total.toStringAsFixed(1)} ${context.s.pts}',
               style: WayFonts.mono(size: 11, color: c.inkSoft)),
         ]),
         if (segs.isNotEmpty) ...[
@@ -1093,7 +1092,7 @@ void _showFlashInfo(BuildContext context,
         children: [
           Text(body, style: WayFonts.ui(size: 13, color: c.inkSoft)),
           const SizedBox(height: 12),
-          Text('+${value.toStringAsFixed(1)} punti oggi',
+          Text(context.s.pointsToday(value.toStringAsFixed(1)),
               style: WayFonts.mono(
                   size: 13, weight: FontWeight.w700, color: color)),
         ],
@@ -1101,7 +1100,7 @@ void _showFlashInfo(BuildContext context,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dctx).pop(),
-          child: Text('OK', style: WayFonts.ui(size: 13, color: c.accent)),
+          child: Text(context.s.ok, style: WayFonts.ui(size: 13, color: c.accent)),
         ),
       ],
     ),

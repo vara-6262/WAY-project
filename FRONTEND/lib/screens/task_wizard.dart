@@ -8,6 +8,7 @@ import '../sheets/sheets.dart';
 import '../state/providers.dart';
 import '../widgets/domain_editor.dart';
 import '../widgets/reward_curve.dart';
+import '../l10n/strings.dart';
 import 'wizard_scaffold.dart';
 
 /// Creazione della task in quattro passi: riconoscimento, durata, criteri,
@@ -75,17 +76,22 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
     );
     ref.read(appProvider.notifier).addTask(task);
     Navigator.of(context).pop();
-    showToast(context, 'Task creata: ${task.name}');
+    showToast(context, context.s.taskCreated(task.name));
   }
 
   @override
   Widget build(BuildContext context) {
-    const titles = ['Riconoscimento', 'Durata', 'Criteri', 'Tipologia'];
-    const subtitles = [
-      'Come si chiama e come la riconosci in un colpo d\'occhio.',
-      'Nei giorni che scegli WAY se l\'aspetta. Negli altri no.',
-      'Ogni condizione che aggiungi rende la task piu\' impegnativa.',
-      'Come si registra l\'esecuzione ogni giorno.',
+    final titles = [
+      context.s.wizStepRecognition,
+      context.s.wizStepDuration,
+      context.s.wizStepCriteria,
+      context.s.wizStepType,
+    ];
+    final subtitles = [
+      context.s.wizSubRecognition,
+      context.s.wizSubDuration,
+      context.s.wizSubCriteria,
+      context.s.wizSubType,
     ];
 
     return WizardScaffold(
@@ -93,7 +99,7 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
       stepCount: 4,
       title: titles[_step],
       subtitle: subtitles[_step],
-      nextLabel: _step == 3 ? 'Crea la task' : 'Continua',
+      nextLabel: _step == 3 ? context.s.createTask : context.s.continueLabel,
       onNext: _stepValid ? _next : null,
       onBack: _step > 0 ? () => setState(() => _step--) : null,
       body: switch (_step) {
@@ -110,13 +116,13 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         LabeledField(
-          label: 'Nome',
+          label: context.s.name,
           controller: _name,
-          hint: 'Studio, Allenamento, Sveglia...',
+          hint: context.s.nameHint,
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 15),
-        Text('ICONA', style: WayFonts.label(color: context.c.inkFaint, size: 9.5)),
+        Text(context.s.icon, style: WayFonts.label(color: context.c.inkFaint, size: 9.5)),
         const SizedBox(height: 7),
         IconPicker(
           icons: taskIcons,
@@ -215,7 +221,7 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
           ),
         ),
         const SizedBox(height: 13),
-        DashedActionButton(label: 'Aggiungi criterio', onTap: _addCriterion),
+        DashedActionButton(label: context.s.addCriterion, onTap: _addCriterion),
       ],
     );
   }
@@ -244,60 +250,56 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _KindOption(
-          title: 'Completa',
-          caption: 'Fatto / non fatto',
+          title: context.s.kindComplete,
+          caption: context.s.kindCompleteSub,
           selected: _kind == TaskKind.complete,
           onTap: () => setState(() => _kind = TaskKind.complete),
         ),
         _KindOption(
-          title: 'Misura',
-          caption: 'Quantita al giorno',
+          title: context.s.kindMeasure,
+          caption: context.s.kindMeasureSub,
           selected: _kind == TaskKind.measure,
           onTap: () => setState(() => _kind = TaskKind.measure),
         ),
         _KindOption(
-          title: 'Mantieni',
-          caption: 'Intatta finche non la infrangi',
+          title: context.s.kindMaintain,
+          caption: context.s.kindMaintainSub,
           selected: _kind == TaskKind.maintenance,
           onTap: () => setState(() => _kind = TaskKind.maintenance),
         ),
         _KindOption(
-          title: 'Astinenza',
-          caption: 'Il valore e nel non ricadere',
+          title: context.s.kindAbstinence,
+          caption: context.s.kindAbstinenceSub,
           selected: _kind == TaskKind.abstinence,
           onTap: () => setState(() => _kind = TaskKind.abstinence),
         ),
         const SizedBox(height: 12),
         ExplainBox(
           switch (_kind) {
-            TaskKind.complete =>
-              'Task senza gradazione: o e rispettata o no.',
-            TaskKind.measure =>
-              'La quantita dice la qualita: ore di studio, pagine, uscite.',
-            TaskKind.maintenance =>
-              'Parte completata e resta valida finche non infrangi una delle condizioni (i criteri del passo precedente). Alla prima infrazione la giornata e persa.',
-            TaskKind.abstinence =>
-              'Ogni giorno pulito conta. Il punteggio cresce nella fase critica iniziale e poi si stabilizza: scegli quanto dura.',
+            TaskKind.complete => context.s.kindCompleteDesc,
+            TaskKind.measure => context.s.kindMeasureDesc,
+            TaskKind.maintenance => context.s.kindMaintainDesc,
+            TaskKind.abstinence => context.s.kindAbstinenceDesc,
           },
         ),
         if (_kind == TaskKind.measure) ...[
           const SizedBox(height: 18),
           Text(
-            'SISTEMA DI RICOMPENSA',
+            context.s.rewardSystem,
             style: WayFonts.label(color: context.c.inkFaint, size: 9.5),
           ),
           const SizedBox(height: 7),
           BigSwitch<RewardCurve>(
-            options: const [
+            options: [
               BigSwitchOption(
                 value: RewardCurve.linear,
-                title: 'Lineare',
-                caption: 'Attrito costante',
+                title: context.s.rewardLinear,
+                caption: context.s.rewardLinearSub,
               ),
               BigSwitchOption(
                 value: RewardCurve.exponential,
-                title: 'Esponenziale',
-                caption: 'Attrito crescente',
+                title: context.s.rewardExp,
+                caption: context.s.rewardExpSub,
               ),
             ],
             selected: _reward,
@@ -306,8 +308,8 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
           const SizedBox(height: 12),
           ExplainBox(
             _reward == RewardCurve.linear
-                ? 'Ogni unita\' in piu\' vale quanto la precedente. Adatto quando continuare non costa fatica aggiuntiva: uscire con gli amici una volta in piu\'.'
-                : 'Ogni unita\' in piu\' vale piu\' della precedente. Adatto quando la fatica cresce: la quinta ora di studio non e\' la prima.',
+                ? context.s.rewardLinearDesc
+                : context.s.rewardExpDesc,
           ),
           const SizedBox(height: 12),
           RewardCurvePreview(
@@ -316,21 +318,21 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
           ),
           const SizedBox(height: 18),
           LabeledField(
-            label: 'Target giornaliero',
+            label: context.s.dailyTarget,
             controller: _targetCtrl,
-            hint: 'es. 40, 5, 3...',
+            hint: context.s.targetHint,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() {}),
           ),
         ],
         if (_kind == TaskKind.abstinence) ...[
           const SizedBox(height: 18),
-          Text('FASE CRITICA',
+          Text(context.s.criticalPhase,
               style: WayFonts.label(color: context.c.inkFaint, size: 9.5)),
           const SizedBox(height: 8),
           Row(
             children: [
-              for (final p in const [(7, 'Breve'), (14, 'Media'), (30, 'Lunga')])
+              for (final p in [(7, context.s.phaseShort), (14, context.s.phaseMedium), (30, context.s.phaseLong)])
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 8),
