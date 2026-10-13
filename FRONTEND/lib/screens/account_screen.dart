@@ -132,9 +132,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   const SizedBox(height: 22),
                   SectionLabel(s.language),
                   const SizedBox(height: 10),
-                  Segmented<AppLang>(
+                  OptionList<AppLang>(
                     values: AppLang.values,
-                    labels: const ['Italiano', 'English'],
+                    labelOf: (l) => l.nativeName,
                     selected: ref.watch(localeProvider),
                     onChanged: (l) => ref.read(localeProvider.notifier).set(l),
                   ),

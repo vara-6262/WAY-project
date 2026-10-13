@@ -1,7 +1,18 @@
 import 'package:flutter/widgets.dart';
 
 /// Lingue supportate.
-enum AppLang { it, en }
+enum AppLang {
+  it('Italiano', 'it'),
+  en('English', 'en');
+
+  const AppLang(this.nativeName, this.code);
+
+  /// Nome nella propria lingua (endonimo), mai tradotto.
+  final String nativeName;
+
+  /// Codice locale (per MaterialApp).
+  final String code;
+}
 
 /// Stringhe localizzate. Sistema "a mano" (niente code-gen): ogni stringa e'
 /// un getter che sceglie la lingua. Aggiungere una lingua = estendere `_p`.

@@ -550,7 +550,10 @@ class LocaleController extends Notifier<AppLang> {
   @override
   AppLang build() {
     final v = ref.read(prefsProvider).getString(_key);
-    return v == 'en' ? AppLang.en : AppLang.it;
+    return AppLang.values.firstWhere(
+      (l) => l.name == v,
+      orElse: () => AppLang.it,
+    );
   }
 
   void set(AppLang lang) {
