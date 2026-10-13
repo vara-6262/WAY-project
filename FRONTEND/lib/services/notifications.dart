@@ -132,6 +132,32 @@ class NotificationService {
       if (id > 400) break;
       await _one(id++, r);
     }
+    await _scheduleBackupReminder();
+  }
+
+  /// Promemoria settimanale: ricordati di salvare un backup esterno.
+  /// Ricorre ogni domenica alle 20:00 (reinserito a ogni scheduleFor).
+  Future<void> _scheduleBackupReminder() async {
+    final now = tz.TZDateTime.now(tz.local);
+    var when = tz.TZDateTime(tz.local, now.year, now.month, now.day, 20);
+    while (when.weekday != DateTime.sunday || !when.isAfter(now)) {
+      when = when.add(const Duration(days: 1));
+    }
+    try {
+      await _plugin.zonedSchedule(
+        500,
+        'WAY — backup',
+        'Salva un backup esterno: Profilo, Condividi backup, Drive.',
+        when,
+        _details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+      );
+    } catch (_) {
+      // promemoria best-effort: non deve mai rompere lo scheduling principale.
+    }
   }
 
   Future<void> _one(int id, Reminder r) async {

@@ -118,7 +118,7 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                 padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
                 children: [
                   ExplainBox(upgrade
-                      ? 'Sali di livello ridefinendo requisiti e dominio (piu impegnativa), oppure Mantieni per fermare la crescita del bonus senza cambiare livello.'
+                      ? 'Sali di livello ridefinendo requisiti e dominio (piu impegnativa); Mantieni per fermare la crescita del bonus restando al livello attuale; Consolida per bloccare gli upgrade e lasciar crescere solo lo streak.'
                       : 'Tre fallimenti di fila: ridefinisci per renderla sostenibile. Il downgrade e opzionale.'),
                   const SizedBox(height: 16),
                   if (t.kind == TaskKind.complete && upgrade) ...[
@@ -202,43 +202,53 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                 border: Border(top: BorderSide(color: c.lineSoft)),
               ),
               child: upgrade
-                  ? Row(children: [
-                      Expanded(
-                        child: GhostButton(
-                          label: 'Mantieni',
-                          onPressed: () {
-                            ref.read(appProvider.notifier).keepTask(t);
-                            Navigator.of(context).maybePop();
-                          },
-                        ),
+                  ? Column(mainAxisSize: MainAxisSize.min, children: [
+                      PrimaryButton(
+                        label: 'Sali di livello',
+                        onPressed: () {
+                          final from = t.level;
+                          ref.read(appProvider.notifier).applyUpgrade(
+                                t,
+                                requirements: _reqTexts,
+                                days: _days.toList()..sort(),
+                                start: _start,
+                                end: _end,
+                                period: _period,
+                                target: showTarget ? _targetVal : null,
+                                toNumber: _toNumber,
+                              );
+                          final updated = ref.read(appProvider).tasks.firstWhere(
+                                (x) => x.id == t.id,
+                                orElse: () => t,
+                              );
+                          final size = MediaQuery.of(context).size;
+                          Reward.levelUp(ref.read(fxProvider), updated, from,
+                              Offset(size.width / 2, size.height / 2));
+                          Navigator.of(context).maybePop();
+                        },
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: PrimaryButton(
-                          label: 'Sali di livello',
-                          onPressed: () {
-                            final from = t.level;
-                            ref.read(appProvider.notifier).applyUpgrade(
-                                  t,
-                                  requirements: _reqTexts,
-                                  days: _days.toList()..sort(),
-                                  start: _start,
-                                  end: _end,
-                                  period: _period,
-                                  target: showTarget ? _targetVal : null,
-                                  toNumber: _toNumber,
-                                );
-                            final updated = ref.read(appProvider).tasks.firstWhere(
-                                  (x) => x.id == t.id,
-                                  orElse: () => t,
-                                );
-                            final size = MediaQuery.of(context).size;
-                            Reward.levelUp(ref.read(fxProvider), updated, from,
-                                Offset(size.width / 2, size.height / 2));
-                            Navigator.of(context).maybePop();
-                          },
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        Expanded(
+                          child: GhostButton(
+                            label: 'Mantieni',
+                            onPressed: () {
+                              ref.read(appProvider.notifier).keepTask(t);
+                              Navigator.of(context).maybePop();
+                            },
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: GhostButton(
+                            label: 'Consolida',
+                            onPressed: () {
+                              ref.read(appProvider.notifier).consolidateTask(t);
+                              Navigator.of(context).maybePop();
+                            },
+                          ),
+                        ),
+                      ]),
                     ])
                   : PrimaryButton(
                       label: 'Conferma',

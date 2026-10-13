@@ -55,7 +55,6 @@ class FirstRunTaskWizard extends ConsumerStatefulWidget {
 
 class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
   final _name = TextEditingController();
-  final _note = TextEditingController();
   final _criterion = TextEditingController();
 
   _Page _page = _Page.name;
@@ -63,7 +62,6 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
 
   String _iconKey = 'book';
   bool _iconTouched = false;
-  bool _noteOpen = false;
   final List<int> _days = [];
   final List<Criterion> _criteria = [];
   TaskKind? _kind;
@@ -75,7 +73,6 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
   @override
   void dispose() {
     _name.dispose();
-    _note.dispose();
     _targetCtrl.dispose();
     _criterion.dispose();
     super.dispose();
@@ -104,7 +101,7 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
       id: newId(),
       name: _name.text.trim(),
       iconKey: _iconKey,
-      description: _note.text.trim(),
+      description: '',
       days: (_days.toList()..sort()),
       criteria: List.of(_criteria),
       kind: _kind ?? TaskKind.complete,
@@ -249,38 +246,6 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
             ],
           ),
         ),
-        const SizedBox(height: 18),
-        GestureDetector(
-          onTap: () => setState(() => _noteOpen = !_noteOpen),
-          child: Row(
-            children: [
-              Icon(_noteOpen ? Icons.remove : Icons.add,
-                  size: 16, color: c.inkFaint),
-              const SizedBox(width: 7),
-              Text(
-                _noteOpen ? 'Rimuovi la nota' : 'Aggiungi una nota',
-                style: WayFonts.ui(
-                  size: 12,
-                  weight: FontWeight.w700,
-                  color: c.inkFaint,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (_noteOpen) ...[
-          const SizedBox(height: 10),
-          TextField(
-            controller: _note,
-            maxLines: 3,
-            minLines: 2,
-            style: WayFonts.ui(size: 13.5, color: c.ink),
-            decoration: fieldDecoration(
-              context,
-              'Cosa intendi davvero con questa attività',
-            ),
-          ),
-        ],
       ],
     );
   }

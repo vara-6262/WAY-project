@@ -23,7 +23,6 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
   int _step = 0;
 
   final _name = TextEditingController();
-  final _description = TextEditingController();
 
   String _iconKey = 'book';
   final List<int> _days = [];
@@ -42,7 +41,6 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
   @override
   void dispose() {
     _name.dispose();
-    _description.dispose();
     _targetCtrl.dispose();
     super.dispose();
   }
@@ -62,7 +60,7 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
       id: newId(),
       name: _name.text.trim(),
       iconKey: _iconKey,
-      description: _description.text.trim(),
+      description: '',
       days: (_days.toList()..sort()),
       criteria: List.of(_criteria),
       kind: _kind,
@@ -124,13 +122,6 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
           icons: taskIcons,
           selected: _iconKey,
           onSelect: (key) => setState(() => _iconKey = key),
-        ),
-        const SizedBox(height: 15),
-        LabeledField(
-          label: 'Descrizione (facoltativa)',
-          controller: _description,
-          hint: 'Cosa conta come esecuzione, in una riga.',
-          multiline: true,
         ),
       ],
     );

@@ -173,7 +173,6 @@ class AppController extends Notifier<AppData> {
   /// Consolida i giorni passati non ancora sigillati (ledger dai valori del log).
   AppData _consolidate(AppData d) {
     final todayKey = Dates.key(Dates.today());
-    final yKey = Dates.key(Dates.addDays(Dates.today(), -1));
     final ledger = Map<String, double>.from(d.ledger);
     for (final k in d.log.keys) {
       if (k.compareTo(todayKey) >= 0) continue;
@@ -184,12 +183,21 @@ class AppController extends Notifier<AppData> {
     final succ = {for (final t in d.tasks) t.id: t.succ};
     final fail = {for (final t in d.tasks) t.id: t.fail};
     var last = d.lastLifecycleDay;
-    final days = d.log.keys
-        .where((k) => k.compareTo(yKey) < 0 && k.compareTo(last) > 0)
-        .toList()
-      ..sort();
-    for (final k in days) {
-      final day = Dates.parse(k);
+    final yesterday = Dates.addDays(Dates.today(), -1);
+    // Punto di partenza: giorno dopo l'ultimo processato; alla prima volta il
+    // piu' vecchio giorno del log (o ieri se non c'e' storia).
+    DateTime cursor;
+    if (last.isEmpty) {
+      final keys = d.log.keys.toList()..sort();
+      cursor = keys.isEmpty ? yesterday : Dates.parse(keys.first);
+    } else {
+      cursor = Dates.addDays(Dates.parse(last), 1);
+    }
+    // Itera OGNI giorno di calendario fino a ieri (escluso): cosi' anche i
+    // giorni completamente saltati (senza voce nel log) contano come fallimenti.
+    for (var i = 0; i < 500 && cursor.isBefore(yesterday); i++) {
+      final day = cursor;
+      final k = Dates.key(day);
       for (final t in d.tasks) {
         if (t.kind == TaskKind.abstinence || t.archived) continue;
         if (!d.existsOn(t, day)) continue; // non esisteva ancora
@@ -217,6 +225,7 @@ class AppController extends Notifier<AppData> {
         }
       }
       last = k;
+      cursor = Dates.addDays(cursor, 1);
     }
     final tasks = d.tasks
         .map((t) => (t.kind == TaskKind.abstinence || t.archived)
@@ -267,6 +276,10 @@ class AppController extends Notifier<AppData> {
   /// senza toccare livello o configurazione.
   void keepTask(Task t) =>
       updateTask(t.copyWith(succ: 0, fail: 0, streakSince: Dates.today()));
+
+  /// Consolida: blocca gli upgrade per sempre; lo streak prosegue a oltranza
+  /// (non azzera nulla). Resta comunque declassabile in caso di fallimenti.
+  void consolidateTask(Task t) => updateTask(t.copyWith(locked: true));
 
   void applyReconfig(
     Task t, {

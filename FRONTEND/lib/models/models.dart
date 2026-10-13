@@ -70,6 +70,7 @@ class Task {
     this.streakSince,
     this.createdOn,
     this.archived = false,
+    this.locked = false,
     required this.level,
     required this.streak,
   });
@@ -109,6 +110,9 @@ class Task {
   /// Task conclusa/archiviata (fuori dallo scope).
   final bool archived;
 
+  /// Consolidata: niente piu' upgrade, lo streak cresce a oltranza.
+  final bool locked;
+
   /// Le task nascono a livello 0 e salgono con la costanza.
   final int level;
 
@@ -140,6 +144,7 @@ class Task {
     DateTime? streakSince,
     DateTime? createdOn,
     bool? archived,
+    bool? locked,
     int? level,
     int? streak,
   }) {
@@ -162,6 +167,7 @@ class Task {
       streakSince: streakSince ?? this.streakSince,
       createdOn: createdOn ?? this.createdOn,
       archived: archived ?? this.archived,
+      locked: locked ?? this.locked,
       level: level ?? this.level,
       streak: streak ?? this.streak,
     );
@@ -172,6 +178,7 @@ class Task {
         'name': name,
         'iconKey': iconKey,
         'description': description,
+        'locked': locked,
         'days': days,
         'criteria': criteria.map((c) => c.toJson()).toList(),
         'kind': kind.name,
@@ -226,6 +233,7 @@ class Task {
             ? DateTime.parse(j['createdOn'] as String)
             : null,
         archived: j['archived'] == true,
+        locked: j['locked'] == true,
         level: (j['level'] as num?)?.toInt() ?? 0,
         streak: (j['streak'] as num?)?.toInt() ?? 0,
       );

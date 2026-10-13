@@ -395,10 +395,6 @@ Future<void> showTaskDetailSheet(
             DifficultyPill(task.difficulty),
           ],
         ),
-        if (task.description.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Text(task.description, style: WayFonts.ui(size: 12.5, color: c.inkSoft)),
-        ],
         const SizedBox(height: 16),
         Text('GIORNI', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
         const SizedBox(height: 7),

@@ -1,3 +1,5 @@
+import 'dart:math' show pi;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -389,12 +391,18 @@ class _ChartGlance extends ConsumerWidget {
           onChanged: (r) => ref.read(appProvider.notifier).setRange(r),
         ),
         const SizedBox(height: 12),
-        SmoothLineChart(
-          values: values,
-          labels: labels,
-          guide: 100,
-          height: 140,
-          format: (v) => '${v.round()}%',
+        AnimatedSwitcher(
+          duration: MediaQuery.of(context).disableAnimations
+              ? Duration.zero
+              : const Duration(milliseconds: 300),
+          child: SmoothLineChart(
+            key: ValueKey(data.range),
+            values: values,
+            labels: labels,
+            guide: 100,
+            height: 140,
+            format: (v) => '${v.round()}%',
+          ),
         ),
       ]),
     );
@@ -423,25 +431,66 @@ class _FlipTopCard extends StatefulWidget {
   State<_FlipTopCard> createState() => _FlipTopCardState();
 }
 
-class _FlipTopCardState extends State<_FlipTopCard> {
+class _FlipTopCardState extends State<_FlipTopCard>
+    with SingleTickerProviderStateMixin {
   bool _chart = false;
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 460));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _flip() {
+    setState(() => _chart = !_chart);
+    if (MediaQuery.of(context).disableAnimations) {
+      _ctrl.value = _chart ? 1 : 0;
+      return;
+    }
+    _chart ? _ctrl.forward() : _ctrl.reverse();
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final body = _chart
-        ? _ChartGlance(data: widget.data)
-        : _TodayCard(
-            score: widget.score,
-            done: widget.done,
-            total: widget.total,
-            place: widget.place,
-            onOpenPlaces: widget.onOpenPlaces,
-          );
     return GestureDetector(
-      onTap: () => setState(() => _chart = !_chart),
+      onTap: _flip,
       child: Stack(children: [
-        body,
+        AnimatedBuilder(
+          animation: _ctrl,
+          builder: (ctx, _) {
+            final t = _ctrl.value; // 0 = oggi, 1 = grafico
+            final showBack = t > 0.5;
+            final Widget face = showBack
+                ? Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.rotationY(pi),
+                    child: _ChartGlance(data: widget.data),
+                  )
+                : _TodayCard(
+                    score: widget.score,
+                    done: widget.done,
+                    total: widget.total,
+                    place: widget.place,
+                    onOpenPlaces: widget.onOpenPlaces,
+                  );
+            return Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.0012)
+                ..rotateY(t * pi),
+              child: face,
+            );
+          },
+        ),
         Positioned(
           top: 14,
           right: 16,
@@ -465,7 +514,6 @@ class _FlipTopCardState extends State<_FlipTopCard> {
     );
   }
 }
-
 class _ReviewBanner extends StatelessWidget {
   const _ReviewBanner({required this.onOpen});
   final VoidCallback onOpen;
@@ -538,10 +586,19 @@ class _MaintenanceRow extends ConsumerWidget {
                   _nameRow(context, task),
                   const SizedBox(height: 7),
                   _compressedLine(context, data, task, day),
-                  if (up != null) ...[
-                    const SizedBox(height: 6),
-                    up,
-                  ],
+                  AnimatedSize(
+                    duration: MediaQuery.of(context).disableAnimations
+                        ? Duration.zero
+                        : const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: up == null
+                        ? const SizedBox(height: 0)
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: up,
+                          ),
+                  ),
                 ]),
           ),
           const SizedBox(width: 10),
@@ -708,10 +765,19 @@ class _ExecutionRow extends ConsumerWidget {
                     dim: complete),
                 const SizedBox(height: 7),
                 _compressedLine(context, data, task, day),
-                if (up != null) ...[
-                  const SizedBox(height: 6),
-                  up,
-                ],
+                AnimatedSize(
+                  duration: MediaQuery.of(context).disableAnimations
+                      ? Duration.zero
+                      : const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: up == null
+                      ? const SizedBox(height: 0)
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: up,
+                        ),
+                ),
               ]),
         ),
         const SizedBox(width: 10),
@@ -795,7 +861,7 @@ class _EvolvePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final pill = GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -808,9 +874,22 @@ class _EvolvePill extends StatelessWidget {
           Icon(icon, size: 15, color: color),
           const SizedBox(width: 6),
           Text(label,
-              style: WayFonts.mono(size: 11, weight: FontWeight.w700, color: color)),
+              style:
+                  WayFonts.mono(size: 11, weight: FontWeight.w700, color: color)),
         ]),
       ),
+    );
+    if (MediaQuery.of(context).disableAnimations) return pill;
+    // Entra con un piccolo "pop" quando l'upgrade/reconfig diventa disponibile.
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeOutBack,
+      builder: (ctx, t, child) => Opacity(
+        opacity: t.clamp(0.0, 1.0),
+        child: Transform.scale(scale: 0.85 + 0.15 * t, child: child),
+      ),
+      child: pill,
     );
   }
 }
@@ -972,13 +1051,21 @@ class _FlashPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final pill = GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
         child: Icon(Icons.bolt, size: 13, color: color),
       ),
+    );
+    if (MediaQuery.of(context).disableAnimations) return pill;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.6, end: 1),
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutBack,
+      builder: (ctx, t, child) => Transform.scale(scale: t, child: child),
+      child: pill,
     );
   }
 }
@@ -1132,7 +1219,8 @@ Widget _compressedLine(
 /// Riga ESTESA (lungo termine): barra di upgrade. Null se non pertinente.
 Widget? _upgradeLine(BuildContext context, AppData data, Task task) {
   final c = context.c;
-  final upgradeable = task.kind != TaskKind.abstinence && !task.archived;
+  final upgradeable =
+      task.kind != TaskKind.abstinence && !task.archived && !task.locked;
   if (!upgradeable || data.upgradeReady(task)) return null;
   final base = data.upgradeBase(task);
   final eff = data.upgradeThreshold(task);

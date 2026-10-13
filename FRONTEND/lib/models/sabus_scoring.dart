@@ -57,7 +57,7 @@ extension SabusScoring on AppData {
   static const double absEndK = 3.0; // fine astinenza a ~absEndK * tau
 
   // Settimanale + mantenimento
-  static const double ecoK = 0.7; // punti passivi = 70% dell'ultima occorrenza
+  static const double ecoMax = 0.7; // tetto eco (task rarissime); scala con la frequenza
   static const int ecoWindow = 8; // giorni max di eco dopo l'ultima occorrenza
 
   bool isWeekly(Task t) => t.period == DomainPeriod.weekly;
@@ -83,11 +83,26 @@ extension SabusScoring on AppData {
 
   /// Eco di mantenimento (solo settimanali): 70% dell'ultima occorrenza
   /// riuscita entro [ecoWindow] giorni.
+  /// Occorrenze previste a settimana (frequenza della task).
+  int weeklyOccurrences(Task t) {
+    if (isWeekly(t)) return 1;
+    return t.days.isEmpty ? 7 : t.days.length;
+  }
+
+  /// Fattore eco: piu' la task e' frequente, meno vale l'eco.
+  /// Lineare: ecoMax a bassa frequenza, 0 per una task di tutti i giorni.
+  double ecoFactor(Task t) {
+    final freq = (weeklyOccurrences(t) / 7).clamp(0.0, 1.0);
+    final f = ecoMax * (1 - freq);
+    return f < 0 ? 0 : f;
+  }
+
   double ecoPoints(Task t, DateTime day) {
-    if (!isWeekly(t)) return 0;
+    final k = ecoFactor(t);
+    if (k <= 0) return 0;
     for (var back = 1; back <= ecoWindow; back++) {
       final d = Dates.addDays(day, -back);
-      if (t.activeOn(d) && taskCounts(t, d)) return ecoK * taskPoints(t, d);
+      if (t.activeOn(d) && taskCounts(t, d)) return k * taskPoints(t, d);
     }
     return 0;
   }
@@ -98,7 +113,12 @@ extension SabusScoring on AppData {
       if (t.activeOn(day) && taskCounts(t, day)) return taskPoints(t, day);
       return ecoPoints(t, day);
     }
-    return t.activeOn(day) ? taskPoints(t, day) : 0;
+    if (t.activeOn(day)) return taskPoints(t, day);
+    // Giornaliere: eco nei giorni off, solo per complete/misura.
+    if (t.kind == TaskKind.complete || t.kind == TaskKind.measure) {
+      return ecoPoints(t, day);
+    }
+    return 0;
   }
 
   /// Punti attesi di una task in un giorno (denominatore della percentuale).
@@ -147,7 +167,7 @@ extension SabusScoring on AppData {
   /// Soglia BASE derivata dalla FREQUENZA: occorrenze a settimana x weeksToUpgrade,
   /// con un pavimento. Cosi' una task a giorni alterni non richiede un mese.
   int upgradeBase(Task t) {
-    final perWeek = isWeekly(t) ? 1 : (t.days.isEmpty ? 7 : t.days.length);
+    final perWeek = weeklyOccurrences(t);
     final b = perWeek * weeksToUpgrade;
     return b < upgradeFloor ? upgradeFloor : b;
   }
@@ -184,6 +204,7 @@ extension SabusScoring on AppData {
   bool upgradeReady(Task t) =>
       t.kind != TaskKind.abstinence &&
       !t.archived &&
+      !t.locked &&
       derivedStreak(t) >= upgradeThreshold(t);
   bool reconfigReady(Task t) =>
       t.kind != TaskKind.abstinence && !t.archived && t.fail >= failThreshold;
@@ -404,10 +425,15 @@ extension SabusScoring on AppData {
       if (e <= 0) continue;
       if (t.kind == TaskKind.maintenance || t.kind == TaskKind.abstinence) {
         maint += e; // passivi DA TASK: mantenimento/astinenza intatti oggi
-      } else if (isWeekly(t) && !(t.activeOn(day) && taskCounts(t, day))) {
-        eco += e; // ECO: meccanica dell'app (settimanali fuori occorrenza)
       } else {
-        active += e; // fatto oggi
+        final occ = isWeekly(t)
+            ? (t.activeOn(day) && taskCounts(t, day))
+            : t.activeOn(day);
+        if (occ) {
+          active += e; // fatto oggi (occorrenza reale)
+        } else {
+          eco += e; // ECO: meccanica (fuori occorrenza, giornaliere incluse)
+        }
       }
     }
     final bonus = (active + maint + eco) * dayBonusFraction(day);
