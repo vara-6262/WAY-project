@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data/dates.dart';
+import '../l10n/strings.dart';
 import '../models/app_data.dart';
 import '../models/sabus_scoring.dart';
 import '../state/providers.dart';
@@ -19,8 +20,8 @@ const _kNameKey = 'way.profile.name';
 const _kDebugKey = 'way.debug.unlocked';
 
 /// Schermata Account: profilo locale (offline), spazio per l'account remoto
-/// (in arrivo col server), aspetto, backup, e strumenti sviluppatore nascosti
-/// dietro 7 tap sulla versione.
+/// (in arrivo col server), aspetto, lingua, backup, e strumenti sviluppatore
+/// nascosti dietro 7 tap sulla versione.
 class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
 
@@ -50,42 +51,42 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         _debug = true;
         _taps = 0;
       });
-      showToast(context, 'Strumenti sviluppatore sbloccati');
+      showToast(context, context.s.devUnlocked);
     } else if (_taps >= 4) {
-      showToast(context, 'Mancano ${7 - _taps}…');
+      showToast(context, context.s.devMissing(7 - _taps));
     }
   }
 
   void _hideDebug() {
     ref.read(prefsProvider).setBool(_kDebugKey, false);
     setState(() => _debug = false);
-    showToast(context, 'Strumenti nascosti');
+    showToast(context, context.s.devHidden);
   }
 
   Future<void> _editName() async {
     final ctrl = TextEditingController(text: _name);
     final c = context.c;
+    final s = context.s;
     final newName = await showDialog<String>(
       context: context,
       builder: (dctx) => AlertDialog(
         backgroundColor: c.surface2,
-        title: Text('Il tuo nome',
-            style: WayFonts.display(size: 16, color: c.ink)),
+        title: Text(s.yourName, style: WayFonts.display(size: 16, color: c.ink)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           style: WayFonts.ui(size: 14.5, color: c.ink),
-          decoration: fieldDecoration(dctx, 'Come ti chiami'),
+          decoration: fieldDecoration(dctx, s.whatsYourName),
           onSubmitted: (v) => Navigator.of(dctx).pop(v.trim()),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dctx).pop(),
-            child: Text('Annulla', style: WayFonts.ui(size: 13, color: c.inkFaint)),
+            child: Text(s.cancel, style: WayFonts.ui(size: 13, color: c.inkFaint)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dctx).pop(ctrl.text.trim()),
-            child: Text('Salva', style: WayFonts.ui(size: 13, color: c.accent)),
+            child: Text(s.save, style: WayFonts.ui(size: 13, color: c.accent)),
           ),
         ],
       ),
@@ -99,6 +100,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final s = context.s;
     return Scaffold(
       backgroundColor: c.surface,
       body: SafeArea(
@@ -113,29 +115,38 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   child: Icon(Icons.chevron_left, color: c.inkSoft),
                 ),
                 const SizedBox(width: 6),
-                Text('Account', style: WayFonts.display(size: 20, color: c.ink)),
+                Text(s.account, style: WayFonts.display(size: 20, color: c.ink)),
               ]),
             ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
                 children: [
-                  _header(c),
+                  _header(c, s),
                   const SizedBox(height: 20),
-                  _accountCard(c),
+                  _accountCard(c, s),
                   const SizedBox(height: 22),
-                  const SectionLabel('Aspetto'),
+                  SectionLabel(s.appearance),
                   const SizedBox(height: 10),
                   _themeRow(c),
                   const SizedBox(height: 22),
-                  const SectionLabel('Backup e dati'),
+                  SectionLabel(s.language),
                   const SizedBox(height: 10),
-                  _backupButtons(c),
+                  Segmented<AppLang>(
+                    values: AppLang.values,
+                    labels: const ['Italiano', 'English'],
+                    selected: ref.watch(localeProvider),
+                    onChanged: (l) => ref.read(localeProvider.notifier).set(l),
+                  ),
+                  const SizedBox(height: 22),
+                  SectionLabel(s.backupAndData),
+                  const SizedBox(height: 10),
+                  _backupButtons(c, s),
                   if (_debug) ...[
                     const SizedBox(height: 24),
-                    const SectionLabel('Sviluppatore'),
+                    SectionLabel(s.developer),
                     const SizedBox(height: 10),
-                    _debugTools(c),
+                    _debugTools(c, s),
                   ],
                   const SizedBox(height: 26),
                   Center(
@@ -158,7 +169,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     );
   }
 
-  Widget _header(WayColors c) {
+  Widget _header(WayColors c, S s) {
     final initial = _name.isEmpty ? '?' : _name.substring(0, 1).toUpperCase();
     return Row(children: [
       Container(
@@ -178,7 +189,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(_name, style: WayFonts.display(size: 19, color: c.ink)),
-            Text('Profilo locale',
+            Text(s.localProfile,
                 style: WayFonts.ui(size: 12.5, color: c.inkSoft)),
           ],
         ),
@@ -190,7 +201,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     ]);
   }
 
-  Widget _accountCard(WayColors c) {
+  Widget _accountCard(WayColors c, S s) {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -205,12 +216,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Accedi / Registrati',
+              Text(s.signInUp,
                   style: WayFonts.ui(
                       size: 14, weight: FontWeight.w700, color: c.inkSoft)),
               const SizedBox(height: 2),
-              Text('Sincronizzazione account presto disponibile.',
-                  style: WayFonts.ui(size: 11.5, color: c.inkFaint)),
+              Text(s.syncSoon, style: WayFonts.ui(size: 11.5, color: c.inkFaint)),
             ],
           ),
         ),
@@ -220,8 +230,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             color: c.surface3,
             borderRadius: BorderRadius.circular(999),
           ),
-          child: Text('presto',
-              style: WayFonts.mono(size: 9, color: c.inkFaint)),
+          child: Text(s.soon, style: WayFonts.mono(size: 9, color: c.inkFaint)),
         ),
       ]),
     );
@@ -269,10 +278,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     ]);
   }
 
-  Widget _backupButtons(WayColors c) {
+  Widget _backupButtons(WayColors c, S s) {
     return Column(children: [
       GhostButton(
-        label: 'Condividi backup (Drive / File)',
+        label: s.shareBackup,
         onPressed: () async {
           try {
             final json = ref.read(appProvider.notifier).exportState();
@@ -281,57 +290,57 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             await f.writeAsString(json);
             await Share.shareXFiles([XFile(f.path)], subject: 'Backup WAY');
           } catch (_) {
-            if (mounted) showToast(context, 'Condivisione non riuscita');
+            if (mounted) showToast(context, context.s.shareFailed);
           }
         },
       ),
       const SizedBox(height: 8),
       GhostButton(
-        label: 'Importa backup dagli appunti',
+        label: s.importBackup,
         onPressed: () async {
           final d = await Clipboard.getData('text/plain');
           final ok = d?.text != null &&
               ref.read(appProvider.notifier).importState(d!.text!);
           if (!mounted) return;
-          showToast(context, ok ? 'Backup ripristinato' : 'Backup non valido');
+          showToast(
+              context, ok ? context.s.backupRestored : context.s.backupInvalid);
         },
       ),
     ]);
   }
 
-  Widget _debugTools(WayColors c) {
+  Widget _debugTools(WayColors c, S s) {
     final mode = ref.watch(modeProvider);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('MODALITÀ PROTOTIPO',
-          style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+      Text(s.prototypeMode, style: WayFonts.label(color: c.inkFaint, size: 9.5)),
       const SizedBox(height: 8),
       Segmented<PrototypeMode>(
         values: PrototypeMode.values,
-        labels: const ['Proxy', 'Configura da 0'],
+        labels: [s.modeProxy, s.modeFromZero],
         selected: mode,
         onChanged: (m) => ref.read(modeProvider.notifier).set(m),
       ),
       const SizedBox(height: 14),
       GhostButton(
-        label: 'Invia notifica di test',
+        label: s.sendTestNotif,
         onPressed: () async {
           await ref.read(notificationsProvider).sendTest();
-          if (mounted) showToast(context, 'Notifica di test inviata');
+          if (mounted) showToast(context, context.s.testNotifSent);
         },
       ),
       const SizedBox(height: 8),
       GhostButton(
-        label: 'Riprogramma promemoria',
+        label: s.rescheduleReminders,
         onPressed: () async {
           final n = ref.read(notificationsProvider);
           await n.scheduleFor(ref.read(appProvider));
           final count = await n.pendingCount();
-          if (mounted) showToast(context, 'Promemoria programmati: $count');
+          if (mounted) showToast(context, context.s.remindersScheduled(count));
         },
       ),
       const SizedBox(height: 8),
       GhostButton(
-        label: 'Notifica tra 1 minuto (test)',
+        label: s.notifIn1Min,
         onPressed: () async {
           final n = ref.read(notificationsProvider);
           if (!await n.canExact()) await n.requestExact();
@@ -340,12 +349,12 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           showDialog<void>(
             context: context,
             builder: (dctx) => AlertDialog(
-              title: const Text('Test notifica programmata'),
+              title: Text(context.s.scheduledNotifTest),
               content: Text(diag),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.of(dctx).pop(),
-                    child: const Text('OK')),
+                    child: Text(context.s.ok)),
               ],
             ),
           );
@@ -353,24 +362,22 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       ),
       const SizedBox(height: 8),
       GhostButton(
-        label: 'Esporta backup negli appunti',
+        label: s.exportBackupClipboard,
         onPressed: () async {
           await Clipboard.setData(
               ClipboardData(text: ref.read(appProvider.notifier).exportState()));
-          if (mounted) {
-            showToast(context, 'Backup copiato negli appunti');
-          }
+          if (mounted) showToast(context, context.s.backupCopied);
         },
       ),
       const SizedBox(height: 8),
       GhostButton(
-        label: 'Report bonus',
+        label: s.bonusReport,
         onPressed: () {
           final report = ref.read(appProvider).bonusReport(Dates.today());
           showDialog<void>(
             context: context,
             builder: (dctx) => AlertDialog(
-              title: const Text('Composizione bonus'),
+              title: Text(context.s.bonusComposition),
               content: SizedBox(
                 width: double.maxFinite,
                 child: SingleChildScrollView(
@@ -381,7 +388,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               actions: [
                 TextButton(
                     onPressed: () => Navigator.of(dctx).pop(),
-                    child: const Text('OK')),
+                    child: Text(context.s.ok)),
               ],
             ),
           );
@@ -389,15 +396,15 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       ),
       const SizedBox(height: 14),
       GhostButton(
-        label: 'Reimposta questa modalità',
+        label: s.resetThisMode,
         foreground: c.hard,
         onPressed: () {
           ref.read(appProvider.notifier).resetCurrentMode();
-          if (mounted) showToast(context, 'Archivio reimpostato');
+          if (mounted) showToast(context, context.s.archiveReset);
         },
       ),
       const SizedBox(height: 8),
-      GhostButton(label: 'Nascondi strumenti sviluppatore', onPressed: _hideDebug),
+      GhostButton(label: s.hideDevTools, onPressed: _hideDebug),
     ]);
   }
 }

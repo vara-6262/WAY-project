@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/dates.dart';
+import '../l10n/strings.dart';
 import '../data/seed.dart';
 import '../models/app_data.dart';
 import '../models/sabus_scoring.dart';
@@ -539,3 +540,21 @@ final expandedCardsProvider = StateProvider<Set<String>>((ref) => <String>{});
 
 final homeFilterProvider =
     StateProvider<HomeFilter>((ref) => HomeFilter.disponibili);
+
+final localeProvider =
+    NotifierProvider<LocaleController, AppLang>(LocaleController.new);
+
+class LocaleController extends Notifier<AppLang> {
+  static const _key = 'way.locale';
+
+  @override
+  AppLang build() {
+    final v = ref.read(prefsProvider).getString(_key);
+    return v == 'en' ? AppLang.en : AppLang.it;
+  }
+
+  void set(AppLang lang) {
+    ref.read(prefsProvider).setString(_key, lang.name);
+    state = lang;
+  }
+}

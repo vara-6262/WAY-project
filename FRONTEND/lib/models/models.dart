@@ -18,16 +18,12 @@ Difficulty difficultyForLevel(int level) {
   return Difficulty.hard;
 }
 
-/// Come si registra l'esecuzione: una spunta oppure una quantita'.
 enum TaskKind { complete, measure, maintenance, abstinence }
 
-/// Come cresce il valore di quello che fai oltre la soglia.
 enum RewardCurve { linear, exponential }
 
-/// Periodo del dominio: ogni giorno scelto, oppure una volta a settimana.
 enum DomainPeriod { daily, weekly }
 
-/// Filtro della Home: cosa mostrare tra le task di oggi.
 enum HomeFilter { disponibili, tutte }
 
 extension DomainPeriodLabel on DomainPeriod {
@@ -80,48 +76,36 @@ class Task {
   final String iconKey;
   final String description;
 
-  /// Giorni della settimana in cui la task vale, 0 = lunedi'.
   final List<int> days;
   final List<Criterion> criteria;
   final TaskKind kind;
   final RewardCurve reward;
 
-  /// Quantita' che vale il 100% della giornata.
   final double target;
 
-  /// Finestra oraria (ore) e periodo del dominio.
   final int start;
   final int end;
   final DomainPeriod period;
 
-  /// Astinenza: durata della fase critica (giorni) per la curva a campana.
   final int tau;
 
-  /// Contatori del ciclo di vita (successi/fallimenti consecutivi).
   final int succ;
   final int fail;
 
-  /// Data da cui contare lo streak (azzerata con "Mantieni").
   final DateTime? streakSince;
 
-  /// Nascita della task: prima di questa data non esiste (niente punti/streak).
   final DateTime? createdOn;
 
-  /// Task conclusa/archiviata (fuori dallo scope).
   final bool archived;
 
-  /// Consolidata: niente piu' upgrade, lo streak cresce a oltranza.
   final bool locked;
 
-  /// Le task nascono a livello 0 e salgono con la costanza.
   final int level;
 
-  /// Esecuzioni consecutive riuscite.
   final int streak;
 
   Difficulty get difficulty => difficultyForLevel(level);
 
-  /// Avanzamento verso il livello successivo: 28 esecuzioni costanti.
   double get levelProgress => (streak / 28).clamp(0.0, 1.0);
 
   bool activeOn(DateTime day) => days.contains(Dates.weekdayIndex(day));
