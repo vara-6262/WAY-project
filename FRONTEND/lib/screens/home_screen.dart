@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/dates.dart';
 import '../data/glyphs.dart';
 import '../models/sabus_scoring.dart';
+import 'account_screen.dart';
 import 'review_screen.dart';
 import 'task_evolution_screen.dart';
 import '../fx/anchors.dart';
@@ -135,7 +136,8 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             GestureDetector(
-              onTap: () => showProfileSheet(context, ref),
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AccountScreen())),
               child: Container(
                 width: 44,
                 height: 44,
