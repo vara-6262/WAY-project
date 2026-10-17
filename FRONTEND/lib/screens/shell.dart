@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../fx/anchors.dart';
+import '../l10n/strings.dart';
 import '../fx/fx_controller.dart';
 import '../fx/fx_overlays.dart';
 import '../fx/reward_layer.dart';
@@ -105,16 +106,16 @@ class _TabBar extends StatelessWidget {
   final int index;
   final ValueChanged<int> onTap;
 
-  static const items = <({IconData icon, String label})>[
-    (icon: Icons.home_outlined, label: 'Home'),
-    (icon: Icons.checklist_outlined, label: 'Tasks'),
-    (icon: Icons.place_outlined, label: 'Places'),
-    (icon: Icons.show_chart_outlined, label: 'Trend'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final s = context.s;
+    final items = <({IconData icon, String label})>[
+      (icon: Icons.home_outlined, label: s.navHome),
+      (icon: Icons.checklist_outlined, label: s.navTasks),
+      (icon: Icons.place_outlined, label: s.navPlaces),
+      (icon: Icons.show_chart_outlined, label: s.navTrend),
+    ];
     return SafeArea(
       top: false,
       child: Padding(

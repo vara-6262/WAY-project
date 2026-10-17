@@ -332,10 +332,14 @@ extension SabusScoring on AppData {
       if (t.activeOn(day)) {
         if (taskCounts(t, day)) {
           streak++;
-        } else if (i != 0) {
-          break; // un giorno passato mancato spezza
+        } else {
+          // La grazia "oggi in sospeso" vale solo per complete/misura
+          // (non ancora fatto). Per mantenimento/astinenza un oggi
+          // compromesso e' un fallimento esplicito e spezza subito.
+          final todayPending = i == 0 &&
+              (t.kind == TaskKind.complete || t.kind == TaskKind.measure);
+          if (!todayPending) break;
         }
-        // oggi non ancora fatto: in sospeso, non spezza lo streak
       }
       day = Dates.addDays(day, -1);
     }

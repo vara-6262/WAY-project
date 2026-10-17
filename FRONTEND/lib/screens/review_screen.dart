@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/dates.dart';
+import '../l10n/strings.dart';
 import '../data/glyphs.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
@@ -70,14 +71,14 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                         Text('IERI · ${Dates.dayShort[Dates.weekdayIndex(y)]} ${y.day}/${y.month}',
                             style: WayFonts.label(color: c.inkFaint, size: 9.5)),
                         const SizedBox(height: 2),
-                        Text('Review a mente fredda',
+                        Text(context.s.reviewTitle,
                             style: WayFonts.display(size: 21, color: c.ink)),
                       ],
                     ),
                   ),
                   GestureDetector(
                     onTap: () => Navigator.of(context).maybePop(),
-                    child: Text('Chiudi',
+                    child: Text(context.s.close,
                         style: WayFonts.ui(size: 12, weight: FontWeight.w700, color: c.inkFaint)),
                   ),
                 ],
@@ -97,8 +98,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                       borderRadius: const BorderRadius.horizontal(right: Radius.circular(10)),
                     ),
                     child: Text(
-                      'Le correzioni valgono metà: recuperi metà dei punti che aggiungi, '
-                      'restituisci metà di quelli che togli. La costanza (streak) non si spezza.',
+                      context.s.reviewExplain,
                       style: WayFonts.ui(size: 11.5, color: c.inkSoft),
                     ),
                   ),
@@ -117,9 +117,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Ieri ${original.toStringAsFixed(1)} → dopo review',
+                      Text(context.s.reviewYesterday(original.toStringAsFixed(1)),
                           style: WayFonts.ui(size: 12.5, color: c.inkSoft)),
-                      Text('${sealed.toStringAsFixed(1)} pt',
+                      Text('${sealed.toStringAsFixed(1)} ${context.s.pts}',
                           style: WayFonts.display(size: 18, color: c.ink)),
                     ],
                   ),
@@ -128,7 +128,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                     children: [
                       Expanded(
                         child: GhostButton(
-                          label: 'Salta',
+                          label: context.s.skip,
                           onPressed: () {
                             ref.read(appProvider.notifier).skipReview();
                             Navigator.of(context).maybePop();
@@ -138,7 +138,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: PrimaryButton(
-                          label: 'Conferma review',
+                          label: context.s.confirmReview,
                           onPressed: () {
                             ref.read(appProvider.notifier).applyReview(_proposed);
                             Navigator.of(context).maybePop();
@@ -175,17 +175,17 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         break;
       case TaskKind.maintenance:
         final intact = v == 0;
-        control = _toggle(context, intact ? 'Intatta' : 'Compromessa', intact,
+        control = _toggle(context, intact ? context.s.statusIntact : context.s.statusCompromised, intact,
             () => setState(() => _proposed[t.id] = intact ? 1 : 0));
         break;
       case TaskKind.abstinence:
         final clean = v == 0;
-        control = _toggle(context, clean ? 'Pulito' : 'Ricaduta', clean,
+        control = _toggle(context, clean ? context.s.statusClean : context.s.relapse, clean,
             () => setState(() => _proposed[t.id] = clean ? 1 : 0));
         break;
       case TaskKind.complete:
         final done = v > 0;
-        control = _toggle(context, done ? 'Fatto' : 'Non fatto', done,
+        control = _toggle(context, done ? context.s.statusDone : context.s.statusNotDone, done,
             () => setState(() => _proposed[t.id] = done ? 0 : 1));
         break;
     }

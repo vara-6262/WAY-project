@@ -941,7 +941,7 @@ class _ScoreBar extends ConsumerWidget {
     final today = Dates.today();
     final b = data.dayBreakdown(today);
     final barTotal = b.active + b.maint; // cio' che va nella barra (da task)
-    final total = barTotal + b.eco + b.bonus;
+    final total = barTotal + b.bonus;
     if (total <= 0) return const SizedBox.shrink();
 
     final segs = <(String, double, Color)>[
@@ -949,7 +949,6 @@ class _ScoreBar extends ConsumerWidget {
       (context.s.maintenance, b.maint, c.media),
     ].where((s) => s.$2 > 0).toList();
     final hasBonus = b.bonus > 0.001;
-    final hasEco = b.eco > 0.001;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -963,20 +962,6 @@ class _ScoreBar extends ConsumerWidget {
           Text(context.s.scoreComposition,
               style: WayFonts.label(color: c.inkFaint, size: 9)),
           const Spacer(),
-          if (hasEco) ...[
-            _FlashPill(
-              color: c.media,
-              tint: c.mediaTint,
-              onTap: () => _showFlashInfo(
-                context,
-                color: c.media,
-                value: b.eco,
-                title: context.s.ecoTitle,
-                body: context.s.ecoBody,
-              ),
-            ),
-            const SizedBox(width: 6),
-          ],
           if (hasBonus) ...[
             _FlashPill(
               color: c.easy,

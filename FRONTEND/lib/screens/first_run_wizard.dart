@@ -10,6 +10,7 @@ import '../state/providers.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/day_flower.dart';
+import '../l10n/strings.dart';
 import 'wizard_scaffold.dart';
 
 /// Suggerisce l'icona dal nome: nella maggior parte dei casi indovina, e
@@ -115,7 +116,7 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
     ctrl.markEducation(criteria: true);
     ctrl.setStage(OnboardingStage.coreIntro);
     Navigator.of(context).pop();
-    showToast(context, 'Task creata: ${task.name}');
+    showToast(context, context.s.taskCreated(task.name));
   }
 
   @override
@@ -138,38 +139,34 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
   }
 
   String get _title => switch (_page) {
-        _Page.name => 'Come si chiama?',
-        _Page.days => 'Quando vale ${_name.text.trim()}?',
-        _Page.track => 'Come la segni?',
-        _Page.curve => 'Ogni unità in più vale uguale?',
-        _Page.amount => 'Quanto ne vuoi fare?',
-        _Page.criteria => 'Cosa vuol dire farla bene?',
+        _Page.name => context.s.frTitleName,
+        _Page.days => context.s.frTitleDays(_name.text.trim()),
+        _Page.track => context.s.frTitleTrack,
+        _Page.curve => context.s.frTitleCurve,
+        _Page.amount => context.s.frTitleAmount,
+        _Page.criteria => context.s.frTitleCriteria,
       };
 
   String get _subtitle => switch (_page) {
-        _Page.name => 'Il nome che te la fa riconoscere in un secondo.',
-        _Page.days =>
-          'Nei giorni che scegli WAY se l\'aspetta. Negli altri no, e la tua percentuale non ne risente.',
-        _Page.track =>
-          'Decide cosa WAY ti chiede ogni giorno. Puoi cambiarlo quando vuoi.',
-        _Page.curve =>
-          'Serve a WAY per capire quanto premiare quello che fai oltre la soglia.',
-        _Page.amount =>
-          'La soglia è il minimo che conta come giornata valida. Il target è la giornata piena, il 100%.',
-        _Page.criteria =>
-          'Facoltativo. Ogni condizione che aggiungi rende la task più impegnativa, e WAY lo tiene in conto.',
+        _Page.name => context.s.frSubName,
+        _Page.days => context.s.frSubDays,
+        _Page.track => context.s.frSubTrack,
+        _Page.curve => context.s.frSubCurve,
+        _Page.amount => context.s.frSubAmount,
+        _Page.criteria => context.s.frSubCriteria,
       };
 
   /// Nelle pagine di scelta l'azione sta nelle card: un pulsante primario
   /// in fondo sarebbe un doppione.
   String? get _nextLabel => switch (_page) {
-        _Page.name => 'Continua',
-        _Page.days => 'Continua',
+        _Page.name => context.s.continueLabel,
+        _Page.days => context.s.continueLabel,
         _Page.track => null,
         _Page.curve => null,
-        _Page.amount => 'Continua',
-        _Page.criteria =>
-          _criteria.isEmpty ? 'Crea senza criteri' : 'Crea la task',
+        _Page.amount => context.s.continueLabel,
+        _Page.criteria => _criteria.isEmpty
+            ? context.s.createWithoutCriteria
+            : context.s.createTask,
       };
 
   VoidCallback? get _onNext => switch (_page) {
@@ -208,10 +205,10 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
             if (_name.text.trim().isNotEmpty) _goTo(_Page.days);
           },
           style: WayFonts.ui(size: 17, weight: FontWeight.w700, color: c.ink),
-          decoration: fieldDecoration(context, 'Studio, Allenamento, Lettura…'),
+          decoration: fieldDecoration(context, context.s.frNameHint),
         ),
         const SizedBox(height: 18),
-        Text('ICONA', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+        Text(context.s.icon, style: WayFonts.label(color: c.inkFaint, size: 9.5)),
         const SizedBox(height: 8),
         SizedBox(
           height: 44,
@@ -261,7 +258,7 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
         Row(
           children: [
             ShortcutChip(
-              label: 'Tutti i giorni',
+              label: context.s.allDays,
               selected: all,
               onTap: () => setState(() {
                 _days
@@ -271,7 +268,7 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
             ),
             const SizedBox(width: 8),
             ShortcutChip(
-              label: 'Solo feriali',
+              label: context.s.weekdaysOnly,
               selected: week,
               onTap: () => setState(() {
                 _days
@@ -311,9 +308,9 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
       children: [
         ChoiceCard(
           icon: Icons.check_rounded,
-          title: 'Fatta o non fatta',
-          body: 'Ti basta una spunta a fine giornata.',
-          tags: const ['Sveglia', 'Medicina', 'Stretching'],
+          title: context.s.frKindCompleteTitle,
+          body: context.s.frKindCompleteBody,
+          tags: context.s.frTagsComplete,
           onTap: () {
             ref.read(appProvider.notifier).markEducation(complete: true);
             setState(() => _kind = TaskKind.complete);
@@ -322,9 +319,9 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
         ),
         ChoiceCard(
           icon: Icons.show_chart_rounded,
-          title: 'Conta quanto',
-          body: 'Registri una quantità: ore, pagine, chilometri.',
-          tags: const ['Studio', 'Lettura', 'Corsa'],
+          title: context.s.frKindMeasureTitle,
+          body: context.s.frKindMeasureBody,
+          tags: context.s.frTagsMeasure,
           onTap: () {
             ref.read(appProvider.notifier).markEducation(measure: true);
             setState(() => _kind = TaskKind.measure);
@@ -343,8 +340,8 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
       children: [
         ChoiceCard(
           leading: _CurveThumb(exponential: false),
-          title: 'Sì, vale sempre uguale',
-          body: 'La decima uscita con gli amici costa quanto la prima.',
+          title: context.s.frCurveLinearTitle,
+          body: context.s.frCurveLinearBody,
           selected: _reward == RewardCurve.linear,
           onTap: () {
             setState(() => _reward = RewardCurve.linear);
@@ -353,8 +350,8 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
         ),
         ChoiceCard(
           leading: _CurveThumb(exponential: true),
-          title: 'No, costa sempre di più',
-          body: 'La quinta ora di studio pesa più della prima.',
+          title: context.s.frCurveExpTitle,
+          body: context.s.frCurveExpBody,
           selected: _reward == RewardCurve.exponential,
           onTap: () {
             setState(() => _reward = RewardCurve.exponential);
@@ -372,7 +369,7 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('TARGET GIORNALIERO',
+        Text(context.s.dailyTargetCaps,
             style: WayFonts.label(color: c.inkFaint, size: 9.5)),
         const SizedBox(height: 8),
         TextField(
@@ -380,10 +377,10 @@ class _FirstRunTaskWizardState extends ConsumerState<FirstRunTaskWizard> {
           onChanged: (_) => setState(() {}),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           style: WayFonts.ui(size: 14.5, color: c.ink),
-          decoration: fieldDecoration(context, 'es. 40, 5, 3...'),
+          decoration: fieldDecoration(context, context.s.targetHint),
         ),
         const SizedBox(height: 10),
-        Text('La quantita\' che vale il 100% della giornata.',
+        Text(context.s.frAmountNote,
             style: WayFonts.mono(size: 10.5, color: c.inkFaint)),
       ],
     );

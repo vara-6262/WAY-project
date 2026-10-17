@@ -18,12 +18,16 @@ Difficulty difficultyForLevel(int level) {
   return Difficulty.hard;
 }
 
+/// Come si registra l'esecuzione: una spunta oppure una quantita'.
 enum TaskKind { complete, measure, maintenance, abstinence }
 
+/// Come cresce il valore di quello che fai oltre la soglia.
 enum RewardCurve { linear, exponential }
 
+/// Periodo del dominio: ogni giorno scelto, oppure una volta a settimana.
 enum DomainPeriod { daily, weekly }
 
+/// Filtro della Home: cosa mostrare tra le task di oggi.
 enum HomeFilter { disponibili, tutte }
 
 extension DomainPeriodLabel on DomainPeriod {
@@ -65,6 +69,7 @@ class Task {
     this.fail = 0,
     this.streakSince,
     this.createdOn,
+    this.editableUntil,
     this.archived = false,
     this.locked = false,
     required this.level,
@@ -76,36 +81,55 @@ class Task {
   final String iconKey;
   final String description;
 
+  /// Giorni della settimana in cui la task vale, 0 = lunedi'.
   final List<int> days;
   final List<Criterion> criteria;
   final TaskKind kind;
   final RewardCurve reward;
 
+  /// Quantita' che vale il 100% della giornata.
   final double target;
 
+  /// Finestra oraria (ore) e periodo del dominio.
   final int start;
   final int end;
   final DomainPeriod period;
 
+  /// Astinenza: durata della fase critica (giorni) per la curva a campana.
   final int tau;
 
+  /// Contatori del ciclo di vita (successi/fallimenti consecutivi).
   final int succ;
   final int fail;
 
+  /// Data da cui contare lo streak (azzerata con "Mantieni").
   final DateTime? streakSince;
 
+  /// Nascita della task: prima di questa data non esiste (niente punti/streak).
   final DateTime? createdOn;
 
+  /// Entro questo istante i requisiti si possono ancora correggere
+  /// (finestra di 12h dopo creazione/upgrade).
+  final DateTime? editableUntil;
+
+  bool get editable =>
+      editableUntil != null && DateTime.now().isBefore(editableUntil!);
+
+  /// Task conclusa/archiviata (fuori dallo scope).
   final bool archived;
 
+  /// Consolidata: niente piu' upgrade, lo streak cresce a oltranza.
   final bool locked;
 
+  /// Le task nascono a livello 0 e salgono con la costanza.
   final int level;
 
+  /// Esecuzioni consecutive riuscite.
   final int streak;
 
   Difficulty get difficulty => difficultyForLevel(level);
 
+  /// Avanzamento verso il livello successivo: 28 esecuzioni costanti.
   double get levelProgress => (streak / 28).clamp(0.0, 1.0);
 
   bool activeOn(DateTime day) => days.contains(Dates.weekdayIndex(day));
@@ -127,6 +151,7 @@ class Task {
     int? fail,
     DateTime? streakSince,
     DateTime? createdOn,
+    DateTime? editableUntil,
     bool? archived,
     bool? locked,
     int? level,
@@ -150,6 +175,7 @@ class Task {
       fail: fail ?? this.fail,
       streakSince: streakSince ?? this.streakSince,
       createdOn: createdOn ?? this.createdOn,
+      editableUntil: editableUntil ?? this.editableUntil,
       archived: archived ?? this.archived,
       locked: locked ?? this.locked,
       level: level ?? this.level,
@@ -176,6 +202,7 @@ class Task {
         'fail': fail,
         'streakSince': streakSince?.toIso8601String(),
         'createdOn': createdOn?.toIso8601String(),
+        'editableUntil': editableUntil?.toIso8601String(),
         'archived': archived,
         'level': level,
         'streak': streak,
@@ -212,6 +239,9 @@ class Task {
         fail: (j['fail'] as num?)?.toInt() ?? 0,
         streakSince: j['streakSince'] != null
             ? DateTime.parse(j['streakSince'] as String)
+            : null,
+        editableUntil: j['editableUntil'] != null
+            ? DateTime.parse(j['editableUntil'] as String)
             : null,
         createdOn: j['createdOn'] != null
             ? DateTime.parse(j['createdOn'] as String)

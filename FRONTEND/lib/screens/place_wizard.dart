@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/glyphs.dart';
+import '../l10n/strings.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../sheets/sheets.dart';
@@ -71,8 +72,8 @@ class _PlaceWizardState extends ConsumerState<PlaceWizard> {
       Navigator.of(context).pop();
       showToast(
         context,
-        'Ambiente creato: ${place.name}',
-        widget.guided ? 'Configurazione completata' : '',
+        context.s.envCreated(place.name),
+        widget.guided ? context.s.setupComplete : '',
       );
     } else {
       controller.updatePlace(
@@ -85,7 +86,7 @@ class _PlaceWizardState extends ConsumerState<PlaceWizard> {
         ),
       );
       Navigator.of(context).pop();
-      showToast(context, 'Ambiente aggiornato');
+      showToast(context, context.s.envUpdated);
     }
   }
 
@@ -96,16 +97,16 @@ class _PlaceWizardState extends ConsumerState<PlaceWizard> {
       stepIndex: _step,
       stepCount: 2,
       title: widget.guided
-          ? (_step == 0 ? 'Dove cambia la tua routine?' : 'Cosa ti porti dietro?')
-          : (_step == 0 ? 'Riconoscimento' : 'Carico'),
+          ? (_step == 0 ? context.s.pwTitleRecog : context.s.pwTitleLoad)
+          : (_step == 0 ? context.s.wizStepRecognition : context.s.pwStepLoad),
       subtitle: widget.guided
           ? (_step == 0
-              ? 'Un ambiente è un posto o un periodo con regole diverse: casa, università, una trasferta, la sessione d\'esami.'
-              : 'Puoi tenere la Core Session e aggiungere solo ciò che serve qui, oppure spegnerla e costruire una routine diversa.')
+              ? context.s.pwSubRecog
+              : context.s.pwSubLoad)
           : (_step == 0
-              ? 'Dove sei e che periodo è. Il nome basta a distinguerlo.'
-              : 'Quali task hanno senso qui dentro.'),
-      nextLabel: _step == 0 ? 'Continua' : (editing ? 'Salva' : 'Crea l\'ambiente'),
+              ? context.s.pwSub2Recog
+              : context.s.pwSub2Load),
+      nextLabel: _step == 0 ? context.s.continueLabel : (editing ? context.s.save : context.s.createEnvironment),
       onNext: _step == 0 && _name.text.trim().isEmpty ? null : _next,
       onBack: _step > 0 ? () => setState(() => _step = 0) : null,
       body: _step == 0 ? _stepIdentity() : _stepLoad(),
@@ -117,9 +118,9 @@ class _PlaceWizardState extends ConsumerState<PlaceWizard> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         LabeledField(
-          label: 'Nome dell\'ambiente',
+          label: context.s.envName,
           controller: _name,
-          hint: 'Sede - Trento, Casa, In viaggio...',
+          hint: context.s.envNameHint,
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 15),
@@ -132,7 +133,7 @@ class _PlaceWizardState extends ConsumerState<PlaceWizard> {
         ),
         const SizedBox(height: 15),
         LabeledField(
-          label: 'Descrizione (facoltativa)',
+          label: context.s.descriptionOptional,
           controller: _description,
           hint: 'Che periodo e\', e cosa cambia rispetto agli altri.',
           multiline: true,
@@ -164,7 +165,7 @@ class _PlaceWizardState extends ConsumerState<PlaceWizard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Core session',
+                        context.s.coreSession,
                         style: WayFonts.ui(
                           size: 13.5,
                           weight: FontWeight.w600,
@@ -188,10 +189,10 @@ class _PlaceWizardState extends ConsumerState<PlaceWizard> {
           ),
         ),
         const SizedBox(height: 20),
-        const SectionLabel('Task nell\'ambiente'),
+        SectionLabel(context.s.tasksInEnv),
         if (data.tasks.isEmpty)
           Text(
-            'Nessuna task creata. Torna in Tasks e creane almeno una.',
+            context.s.noTasksCreated,
             style: WayFonts.ui(size: 12.5, color: c.inkFaint),
           )
         else

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../fx/anchors.dart';
+import '../l10n/strings.dart';
 import '../models/app_data.dart';
 import '../screens/shell.dart';
 import '../state/providers.dart';
@@ -120,34 +121,32 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         return _Step(
           tab: 1,
           target: taskCreateKey,
-          kicker: 'Primo utilizzo',
-          title: 'Partiamo da una cosa sola',
+          kicker: context.s.firstUse,
+          title: context.s.onbStartTitle,
           body:
-              'Scegli un’attività che vuoi rendere parte delle tue giornate. '
-              'Bastano tre domande: il resto lo costruiamo dopo, insieme.',
+              context.s.onbStartBody,
           targetIsAction: true,
-          pointLabel: 'Tocca “Crea una nuova task”',
+          pointLabel: context.s.onbTapCreateTask,
           actions: [
-            _Action('Salta il tutorial', ctrl.finishOnboarding, ghost: true),
+            _Action(context.s.skipTutorial, ctrl.finishOnboarding, ghost: true),
           ],
         );
       case OnboardingStage.coreIntro:
         return _Step(
           tab: 1,
           target: coreHubKey,
-          kicker: 'La base della tua routine',
-          title: 'Questa è la tua Core Session',
+          kicker: context.s.onbCoreKicker,
+          title: context.s.onbCoreTitle,
           body:
-              'Le task che metti qui ti seguono ovunque. Quando cambi ambiente '
-              'restano con te, salvo che tu decida il contrario.',
+              context.s.onbCoreBody,
           actions: [
-            _Action('Mettici la task', () {
+            _Action(context.s.onbPutTask, () {
               final first = data.tasks.isNotEmpty ? data.tasks.first : null;
               if (first != null) ctrl.addToCore(first.id);
               ctrl.setStage(OnboardingStage.placesInvite);
             }),
             _Action(
-              'Non ora',
+              context.s.notNow,
               () => ctrl.setStage(OnboardingStage.placesInvite),
               ghost: true,
             ),
@@ -157,31 +156,29 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         return _Step(
           tab: 1,
           target: placesTabKey,
-          kicker: 'Facoltativo',
-          title: 'La tua routine cambia con te',
+          kicker: context.s.optional,
+          title: context.s.onbPlacesTitle,
           body:
-              'A casa, in trasferta o in vacanza una buona giornata non chiede '
-              'le stesse cose. Gli ambienti servono a questo.',
+              context.s.onbPlacesBody,
           actions: [
             _Action(
-              'Vediamo Places',
+              context.s.onbSeePlaces,
               () => ctrl.setStage(OnboardingStage.placeIntro),
             ),
-            _Action('Ho finito', ctrl.finishOnboarding, ghost: true),
+            _Action(context.s.onbDone, ctrl.finishOnboarding, ghost: true),
           ],
         );
       case OnboardingStage.placeIntro:
         return _Step(
           tab: 2,
           target: placeCreateKey,
-          kicker: 'Primo utilizzo',
-          title: 'Crea il tuo primo ambiente',
+          kicker: context.s.firstUse,
+          title: context.s.onbCreateFirstEnv,
           body:
-              'Un ambiente decide quali task valgono mentre sei lì. Puoi '
-              'portarti dietro la Core Session e aggiungere solo ciò che serve.',
+              context.s.onbEnvBody,
           targetIsAction: true,
-          pointLabel: 'Tocca “Crea un ambiente”',
-          actions: [_Action('Ho finito', ctrl.finishOnboarding, ghost: true)],
+          pointLabel: context.s.onbTapCreateEnv,
+          actions: [_Action(context.s.onbDone, ctrl.finishOnboarding, ghost: true)],
         );
       case OnboardingStage.taskWizard:
       case OnboardingStage.placeWizard:

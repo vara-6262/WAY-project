@@ -258,6 +258,277 @@ class S {
   String get phaseMedium => _p('Media', 'Medium');
   String get phaseLong => _p('Lunga', 'Long');
 
+  // --- first run (onboarding guidato) ---
+  String get frTitleName => _p('Come si chiama?', "What's it called?");
+  String frTitleDays(String name) =>
+      _p('Quando vale $name?', 'When does $name count?');
+  String get frTitleTrack => _p('Come la segni?', 'How do you log it?');
+  String get frTitleCurve => _p(
+      'Ogni unità in più vale uguale?', 'Does each extra unit count the same?');
+  String get frTitleAmount =>
+      _p('Quanto ne vuoi fare?', 'How much do you want to do?');
+  String get frTitleCriteria =>
+      _p('Cosa vuol dire farla bene?', 'What does doing it well mean?');
+  String get frSubName => _p(
+      'Il nome che te la fa riconoscere in un secondo.',
+      'The name that lets you recognize it in a second.');
+  String get frSubDays => _p(
+      "Nei giorni che scegli WAY se l'aspetta. Negli altri no, e la tua "
+          'percentuale non ne risente.',
+      "On the days you choose, WAY expects it. Not on the others, and your "
+          "percentage isn't affected.");
+  String get frSubTrack => _p(
+      'Decide cosa WAY ti chiede ogni giorno. Puoi cambiarlo quando vuoi.',
+      'Decides what WAY asks of you each day. You can change it anytime.');
+  String get frSubCurve => _p(
+      'Serve a WAY per capire quanto premiare quello che fai oltre la soglia.',
+      'Helps WAY understand how much to reward what you do beyond the '
+          'threshold.');
+  String get frSubAmount => _p(
+      'La soglia è il minimo che conta come giornata valida. Il target è la '
+          'giornata piena, il 100%.',
+      'The threshold is the minimum that counts as a valid day. The target is '
+          'a full day, 100%.');
+  String get frSubCriteria => _p(
+      'Facoltativo. Ogni condizione che aggiungi rende la task più '
+          'impegnativa, e WAY lo tiene in conto.',
+      'Optional. Each condition you add makes the task more demanding, and WAY '
+          'accounts for it.');
+  String get createWithoutCriteria =>
+      _p('Crea senza criteri', 'Create without criteria');
+  String get frNameHint =>
+      _p('Studio, Allenamento, Lettura…', 'Study, Workout, Reading…');
+  String get allDays => _p('Tutti i giorni', 'Every day');
+  String get weekdaysOnly => _p('Solo feriali', 'Weekdays only');
+  String get frKindCompleteTitle => _p('Fatta o non fatta', 'Done or not done');
+  String get frKindCompleteBody =>
+      _p('Ti basta una spunta a fine giornata.',
+          'Just a check at the end of the day.');
+  String get frKindMeasureTitle => _p('Conta quanto', 'Count how much');
+  String get frKindMeasureBody => _p(
+      'Registri una quantità: ore, pagine, chilometri.',
+      'You log an amount: hours, pages, kilometers.');
+  String get frCurveLinearTitle =>
+      _p('Sì, vale sempre uguale', 'Yes, always the same');
+  String get frCurveLinearBody => _p(
+      'La decima uscita con gli amici costa quanto la prima.',
+      'The tenth outing with friends costs as much as the first.');
+  String get frCurveExpTitle =>
+      _p('No, costa sempre di più', 'No, it costs more each time');
+  String get frCurveExpBody => _p(
+      'La quinta ora di studio pesa più della prima.',
+      'The fifth study hour weighs more than the first.');
+  String get dailyTargetCaps => _p('TARGET GIORNALIERO', 'DAILY TARGET');
+  String get frAmountNote => _p(
+      'La quantità che vale il 100% della giornata.',
+      'The amount that counts as 100% of the day.');
+  List<String> get frTagsComplete => _p3(
+      ['Sveglia', 'Medicina', 'Stretching'],
+      ['Alarm', 'Medicine', 'Stretching']);
+  List<String> get frTagsMeasure =>
+      _p3(['Studio', 'Lettura', 'Corsa'], ['Study', 'Reading', 'Running']);
+
+  List<String> _p3(List<String> it, List<String> en) =>
+      lang == AppLang.en ? en : it;
+
+  // --- evolution & review ---
+  String get close => _p('Chiudi', 'Close');
+  String get confirm => _p('Conferma', 'Confirm');
+  String get skip => _p('Salta', 'Skip');
+  String get evolveUpgradeHelp => _p(
+      'Sali di livello ridefinendo requisiti e dominio (più impegnativa); '
+          'Mantieni per fermare la crescita del bonus restando al livello '
+          'attuale; Consolida per bloccare gli upgrade e lasciar crescere '
+          'solo lo streak.',
+      'Level up by redefining requirements and domain (more demanding); Keep '
+          'to stop bonus growth staying at the current level; Consolidate to '
+          'lock upgrades and let only the streak grow.');
+  String get evolveReconfigHelp => _p(
+      'Tre fallimenti di fila: ridefinisci per renderla sostenibile. Il '
+          'downgrade è opzionale.',
+      'Three failures in a row: redefine it to make it sustainable. The '
+          'downgrade is optional.');
+  String get transformToMeasure =>
+      _p('Trasforma in misura', 'Turn into measure');
+  String requirementN(int n) => _p('Requisito $n', 'Requirement $n');
+  String get conditionHint => _p('condizione...', 'condition...');
+  String get levelDown => _p('Scendi di livello (-1)', 'Level down (-1)');
+  String get levelUpAction => _p('Sali di livello', 'Level up');
+  String get keepAction => _p('Mantieni', 'Keep');
+  String get consolidate => _p('Consolida', 'Consolidate');
+  String get reviewTitle => _p('Review a mente fredda', 'Cold-headed review');
+  String get reviewExplain => _p(
+      'Le correzioni valgono metà: recuperi metà dei punti che aggiungi, '
+          'restituisci metà di quelli che togli. La costanza (streak) non si '
+          'spezza.',
+      'Corrections are worth half: you recover half the points you add, give '
+          "back half of those you remove. Consistency (streak) doesn't break.");
+  String reviewYesterday(String original) =>
+      _p('Ieri $original → dopo review', 'Yesterday $original → after review');
+  String get confirmReview => _p('Conferma review', 'Confirm review');
+  String get statusIntact => _p('Intatta', 'Intact');
+  String get statusCompromised => _p('Compromessa', 'Compromised');
+  String get statusClean => _p('Pulito', 'Clean');
+  String get statusDone => _p('Fatto', 'Done');
+  String get statusNotDone => _p('Non fatto', 'Not done');
+
+  // --- places & place wizard ---
+  String get placesEyebrow => _p('Contesto', 'Context');
+  String get placesTitle => 'Places';
+  String get emptyHub => _p("Svuota l'hub", 'Clear the hub');
+  String get noActiveEnv => _p(
+      'Nessun ambiente attivo: resta solo la core session',
+      'No active environment: only the core session remains');
+  String get hubNote => _p(
+      "Un solo ambiente per volta può stare nell'hub. Le statistiche si "
+          "adattano al carico dell'ambiente attivo, non a un carico fisso.",
+      "Only one environment at a time can be in the hub. Stats adapt to the "
+          "active environment's load, not a fixed load.");
+  String get active => _p('Attivo', 'Active');
+  String placeLoad(int load, bool core) => _p(
+      '$load task · core session ${core ? "attiva" : "disattivata"}',
+      '$load tasks · core session ${core ? "on" : "off"}');
+  String get createEnv => _p('Crea un ambiente', 'Create an environment');
+  String get noEnvironments => _p('Nessun ambiente', 'No environments');
+  String activeEnv(String name) =>
+      _p('Ambiente attivo: $name', 'Active environment: $name');
+  String envCreated(String name) =>
+      _p('Ambiente creato: $name', 'Environment created: $name');
+  String get setupComplete => _p('Configurazione completata', 'Setup complete');
+  String get envUpdated => _p('Ambiente aggiornato', 'Environment updated');
+  String get pwTitleRecog =>
+      _p('Dove cambia la tua routine?', 'Where does your routine change?');
+  String get pwTitleLoad => _p('Cosa ti porti dietro?', 'What do you bring along?');
+  String get pwStepLoad => _p('Carico', 'Load');
+  String get pwSubRecog => _p(
+      "Un ambiente è un posto o un periodo con regole diverse: casa, "
+          "università, una trasferta, la sessione d'esami.",
+      'An environment is a place or period with different rules: home, '
+          'university, a trip, exam season.');
+  String get pwSubLoad => _p(
+      'Puoi tenere la Core Session e aggiungere solo ciò che serve qui, '
+          'oppure spegnerla e costruire una routine diversa.',
+      'You can keep the Core Session and add only what you need here, or turn '
+          'it off and build a different routine.');
+  String get pwSub2Recog => _p(
+      'Dove sei e che periodo è. Il nome basta a distinguerlo.',
+      'Where you are and what period it is. The name is enough to tell it '
+          'apart.');
+  String get pwSub2Load =>
+      _p('Quali task hanno senso qui dentro.', 'Which tasks make sense in here.');
+  String get createEnvironment => _p("Crea l'ambiente", 'Create environment');
+  String get envName => _p("Nome dell'ambiente", 'Environment name');
+  String get envNameHint => _p(
+      'Sede - Trento, Casa, In viaggio...', 'Office - Trento, Home, Traveling...');
+  String get descriptionOptional =>
+      _p('Descrizione (facoltativa)', 'Description (optional)');
+  String get coreSession => 'Core session';
+  String get tasksInEnv => _p("Task nell'ambiente", 'Tasks in the environment');
+  String get noTasksCreated => _p(
+      'Nessuna task creata. Torna in Tasks e creane almeno una.',
+      'No tasks created. Go back to Tasks and create at least one.');
+
+  // --- sheets (dettaglio task / elimina / criterio / place) ---
+  String get inCore => _p('nel nucleo', 'in the core');
+  String get outOfCore => _p('fuori dal nucleo', 'out of the core');
+  String get openDetails => _p('Apri dettagli', 'Open details');
+  String get removeFromCore =>
+      _p('Togli dalla Core Session', 'Remove from Core Session');
+  String get addToCore => _p('Aggiungi alla Core Session', 'Add to Core Session');
+  String get deleteTask => _p('Elimina task', 'Delete task');
+  String deleteConfirm(String name) =>
+      _p('Eliminare "$name"?', 'Delete "$name"?');
+  String get deleteBodyCore => _p(
+      'Sparisce dal nucleo e dagli ambienti che la usano, insieme ai suoi '
+          'criteri e al suo storico. Non si torna indietro.',
+      'It disappears from the core and the environments using it, along with '
+          "its criteria and history. There's no going back.");
+  String get deleteBodyPlain => _p(
+      'Spariscono anche i suoi criteri e il suo storico. Non si torna indietro.',
+      "Its criteria and history disappear too. There's no going back.");
+  String get delete => _p('Elimina', 'Delete');
+  String get taskDeleted => _p('Task eliminata', 'Task deleted');
+  String objective(String target) => _p('Obiettivo $target', 'Target $target');
+  String get noCriterion => _p('Nessun criterio.', 'No criteria.');
+  String get coreNote => _p(
+      'Queste task valgono in ogni ambiente che tiene la core session attiva.',
+      'These tasks apply in every environment that keeps the core session '
+          'active.');
+  String get allInCore =>
+      _p('Tutte le task sono già nel nucleo.', 'All tasks are already in the core.');
+  String get newCriterion => _p('Nuovo criterio', 'New criterion');
+  String get editCriterion => _p('Modifica criterio', 'Edit criterion');
+  String get criterionHelp => _p(
+      'Una condizione verificabile: se non è vera, la giornata non conta.',
+      "A verifiable condition: if it's not true, the day doesn't count.");
+  String coreSessionState(bool core) => _p(
+      'Core session ${core ? "attiva" : "disattivata"}',
+      'Core session ${core ? "on" : "off"}');
+  String get noTasks => _p('Nessuna task.', 'No tasks.');
+  String get edit => _p('Modifica', 'Edit');
+  String get activate => _p('Attiva', 'Activate');
+  String get deleteEnvironment => _p('Elimina ambiente', 'Delete environment');
+  String get environmentDeleted =>
+      _p('Ambiente eliminato', 'Environment deleted');
+
+  // --- onboarding flow & nav ---
+  String get firstUse => _p('Primo utilizzo', 'First time');
+  String get onbStartTitle =>
+      _p('Partiamo da una cosa sola', "Let's start with just one thing");
+  String get onbStartBody => _p(
+      'Scegli un’attività che vuoi rendere parte delle tue giornate. '
+          'Bastano tre domande: il resto lo costruiamo dopo, insieme.',
+      'Choose an activity you want to make part of your days. Just three '
+          'questions: we build the rest later, together.');
+  String get onbTapCreateTask =>
+      _p('Tocca “Crea una nuova task”', 'Tap “Create a new task”');
+  String get skipTutorial => _p('Salta il tutorial', 'Skip the tutorial');
+  String get onbCoreKicker =>
+      _p('La base della tua routine', 'The base of your routine');
+  String get onbCoreTitle =>
+      _p('Questa è la tua Core Session', 'This is your Core Session');
+  String get onbCoreBody => _p(
+      'Le task che metti qui ti seguono ovunque. Quando cambi ambiente '
+          'restano con te, salvo che tu decida il contrario.',
+      'The tasks you put here follow you everywhere. When you change '
+          'environment they stay with you, unless you decide otherwise.');
+  String get onbPutTask => _p('Mettici la task', 'Put the task here');
+  String get notNow => _p('Non ora', 'Not now');
+  String get optional => _p('Facoltativo', 'Optional');
+  String get onbPlacesTitle =>
+      _p('La tua routine cambia con te', 'Your routine changes with you');
+  String get onbPlacesBody => _p(
+      'A casa, in trasferta o in vacanza una buona giornata non chiede le '
+          'stesse cose. Gli ambienti servono a questo.',
+      'At home, on a trip or on holiday, a good day asks for different '
+          'things. Environments are for this.');
+  String get onbSeePlaces => _p('Vediamo Places', "Let's see Places");
+  String get onbDone => _p('Ho finito', "I'm done");
+  String get onbCreateFirstEnv =>
+      _p('Crea il tuo primo ambiente', 'Create your first environment');
+  String get onbEnvBody => _p(
+      'Un ambiente decide quali task valgono mentre sei lì. Puoi portarti '
+          'dietro la Core Session e aggiungere solo ciò che serve.',
+      "An environment decides which tasks apply while you're there. You can "
+          'bring the Core Session along and add only what you need.');
+  String get onbTapCreateEnv =>
+      _p('Tocca “Crea un ambiente”', 'Tap “Create an environment”');
+  String get navHome => 'Home';
+  String get navTasks => 'Tasks';
+  String get navPlaces => 'Places';
+  String get navTrend => 'Trend';
+
+  String get signLabel => _p('SEGNO', 'SIGN');
+  String get dragHereEnv =>
+      _p('TRASCINA QUI UN AMBIENTE', 'DRAG AN ENVIRONMENT HERE');
+  String get activeEnvCaps => _p('AMBIENTE ATTIVO', 'ACTIVE ENVIRONMENT');
+
+  String get editTask => _p('Modifica task', 'Edit task');
+  String get editWindowNote => _p(
+      "Hai 12h dalla creazione o dall'upgrade per correggere nome e requisiti.",
+      'You have 12h from creation or upgrade to fix the name and requirements.');
+  String get criteriaLabel => _p('CRITERI', 'CRITERIA');
+
   // --- date (nomi localizzati, gia' capitalizzati) ---
   List<String> get months => lang == AppLang.en
       ? const [
