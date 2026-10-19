@@ -15,6 +15,7 @@ import '../state/providers.dart';
 import '../theme/way_colors.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/domain_editor.dart';
 
 /// Guscio comune dei fogli: maniglia, angoli e padding sempre identici,
 /// piu' lo spazio per la tastiera quando dentro c'e' un campo di testo.
@@ -800,12 +801,20 @@ class _EditTaskSheet extends ConsumerStatefulWidget {
 class _EditTaskSheetState extends ConsumerState<_EditTaskSheet> {
   late final TextEditingController _name;
   late final List<String> _criteria;
+  late final List<int> _days;
+  late DomainPeriod _period;
+  late int _start;
+  late int _end;
 
   @override
   void initState() {
     super.initState();
     _name = TextEditingController(text: widget.task.name);
     _criteria = [for (final cr in widget.task.criteria) cr.text];
+    _days = [...widget.task.days];
+    _period = widget.task.period;
+    _start = widget.task.start;
+    _end = widget.task.end;
   }
 
   @override
@@ -870,15 +879,34 @@ class _EditTaskSheetState extends ConsumerState<_EditTaskSheet> {
           },
         ),
         const SizedBox(height: 16),
+        Text(s.whenLabel, style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+        const SizedBox(height: 8),
+        DomainEditor(
+          days: _days,
+          period: _period,
+          start: _start,
+          end: _end,
+          onToggleDay: (i) => setState(() {
+            _days.contains(i) ? _days.remove(i) : _days.add(i);
+          }),
+          onPeriod: (p) => setState(() => _period = p),
+          onStart: (h) => setState(() => _start = h),
+          onEnd: (h) => setState(() => _end = h),
+        ),
+        const SizedBox(height: 16),
         PrimaryButton(
           label: s.save,
           onPressed: () {
             final name = _name.text.trim();
-            if (name.isEmpty) return;
+            if (name.isEmpty || _days.isEmpty) return;
             ref.read(appProvider.notifier).applyTaskEdit(
                   widget.task,
                   name: name,
                   requirements: _criteria,
+                  days: _days.toList()..sort(),
+                  start: _start,
+                  end: _end,
+                  period: _period,
                 );
             Navigator.of(context).pop();
           },

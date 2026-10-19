@@ -284,9 +284,23 @@ class AppController extends Notifier<AppData> {
   void consolidateTask(Task t) => updateTask(t.copyWith(locked: true));
 
   /// Modifica consentita nella finestra di 12h: nome + requisiti (criteri).
-  void applyTaskEdit(Task t,
-          {required String name, required List<String> requirements}) =>
-      updateTask(t.copyWith(name: name, criteria: _mkCriteria(requirements)));
+  void applyTaskEdit(
+    Task t, {
+    required String name,
+    required List<String> requirements,
+    required List<int> days,
+    required int start,
+    required int end,
+    required DomainPeriod period,
+  }) =>
+      updateTask(t.copyWith(
+        name: name,
+        criteria: _mkCriteria(requirements),
+        days: days,
+        start: start,
+        end: end,
+        period: period,
+      ));
 
   void applyReconfig(
     Task t, {

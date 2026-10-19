@@ -534,6 +534,8 @@ class S {
   String get reactivateTask => _p('Riabilita task', 'Reactivate task');
   String get taskReactivated => _p('Task riabilitata', 'Task reactivated');
 
+  String get whenLabel => _p('QUANDO', 'WHEN');
+
   // --- date (nomi localizzati, gia' capitalizzati) ---
   List<String> get months => lang == AppLang.en
       ? const [
