@@ -775,3 +775,73 @@ class ShortcutChip extends StatelessWidget {
     );
   }
 }
+
+/// Selettore a lista scalabile (N opzioni): ogni riga mostra l'etichetta e una
+/// spunta sull'opzione attiva. Pensato per liste che crescono (es. lingue),
+/// dove un selettore a segmenti non regge piu' di 2-3 voci.
+class OptionList<T> extends StatelessWidget {
+  const OptionList({
+    super.key,
+    required this.values,
+    required this.labelOf,
+    required this.selected,
+    required this.onChanged,
+    this.subtitleOf,
+  });
+
+  final List<T> values;
+  final String Function(T) labelOf;
+  final String? Function(T)? subtitleOf;
+  final T selected;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Container(
+      decoration: BoxDecoration(
+        color: c.surface2,
+        border: Border.all(color: c.line),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(children: [
+        for (var i = 0; i < values.length; i++) ...[
+          if (i > 0) Divider(height: 1, thickness: 1, color: c.lineSoft),
+          _row(context, values[i]),
+        ],
+      ]),
+    );
+  }
+
+  Widget _row(BuildContext context, T v) {
+    final c = context.c;
+    final on = v == selected;
+    final sub = subtitleOf?.call(v);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onChanged(v),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(labelOf(v),
+                    style: WayFonts.ui(
+                        size: 14,
+                        weight: on ? FontWeight.w700 : FontWeight.w500,
+                        color: on ? c.ink : c.inkSoft)),
+                if (sub != null) ...[
+                  const SizedBox(height: 2),
+                  Text(sub, style: WayFonts.ui(size: 11.5, color: c.inkFaint)),
+                ],
+              ],
+            ),
+          ),
+          if (on) Icon(Icons.check, size: 18, color: c.accent),
+        ]),
+      ),
+    );
+  }
+}

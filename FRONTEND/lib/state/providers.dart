@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/dates.dart';
+import '../l10n/strings.dart';
 import '../data/seed.dart';
 import '../models/app_data.dart';
 import '../models/sabus_scoring.dart';
@@ -258,6 +259,7 @@ class AppController extends Notifier<AppData> {
       succ: 0,
       fail: 0,
       streakSince: Dates.today(),
+      editableUntil: DateTime.now().add(const Duration(hours: 12)),
       criteria: _mkCriteria(requirements),
       days: days,
       start: start,
@@ -280,6 +282,11 @@ class AppController extends Notifier<AppData> {
   /// Consolida: blocca gli upgrade per sempre; lo streak prosegue a oltranza
   /// (non azzera nulla). Resta comunque declassabile in caso di fallimenti.
   void consolidateTask(Task t) => updateTask(t.copyWith(locked: true));
+
+  /// Modifica consentita nella finestra di 12h: nome + requisiti (criteri).
+  void applyTaskEdit(Task t,
+          {required String name, required List<String> requirements}) =>
+      updateTask(t.copyWith(name: name, criteria: _mkCriteria(requirements)));
 
   void applyReconfig(
     Task t, {
@@ -309,6 +316,14 @@ class AppController extends Notifier<AppData> {
   }
 
   void archiveTask(Task t) => updateTask(t.copyWith(archived: true));
+
+  /// Riabilita una task archiviata, ripartendo da zero (streak fresco).
+  void unarchiveTask(Task t) => updateTask(t.copyWith(
+        archived: false,
+        succ: 0,
+        fail: 0,
+        streakSince: Dates.today(),
+      ));
 
   /// Nasconde una task dalla Home per il giorno corrente (swipe).
   void hideTaskToday(String taskId) {
@@ -345,16 +360,13 @@ class AppController extends Notifier<AppData> {
     }
     final sealedPts = originalBase + (proposedBase - originalBase) * 0.5;
 
-    // log finale: scrivo solo gli "add" che fanno contare la task (streak salvato);
-    // le rimozioni non toccano il log (streak protetto).
+    // log finale: scrivo il valore rivisto per ogni task toccata, cosi' un
+    // fallimento segnalato in review spezza davvero lo streak (e un recupero
+    // lo salva). I punti restano a meta' delta (vedi sealedPts).
     final finalLog = _deepLog(state);
     final finalDay = Map<String, double>.from(finalLog[key] ?? const {});
     for (final t in tasks) {
-      final origCounts = state.taskCounts(t, y);
-      final propCounts = proposedData.taskCounts(t, y);
-      if (propCounts && !origCounts) {
-        finalDay[t.id] = proposed[t.id] ?? finalDay[t.id] ?? 1;
-      }
+      if (proposed.containsKey(t.id)) finalDay[t.id] = proposed[t.id]!;
     }
     finalLog[key] = finalDay;
 
@@ -378,6 +390,8 @@ class AppController extends Notifier<AppData> {
         task.copyWith(
           streakSince: task.streakSince ?? Dates.today(),
           createdOn: task.createdOn ?? Dates.today(),
+          editableUntil: task.editableUntil ??
+              DateTime.now().add(const Duration(hours: 12)),
         ),
       ]));
 
@@ -539,3 +553,24 @@ final expandedCardsProvider = StateProvider<Set<String>>((ref) => <String>{});
 
 final homeFilterProvider =
     StateProvider<HomeFilter>((ref) => HomeFilter.disponibili);
+
+final localeProvider =
+    NotifierProvider<LocaleController, AppLang>(LocaleController.new);
+
+class LocaleController extends Notifier<AppLang> {
+  static const _key = 'way.locale';
+
+  @override
+  AppLang build() {
+    final v = ref.read(prefsProvider).getString(_key);
+    return AppLang.values.firstWhere(
+      (l) => l.name == v,
+      orElse: () => AppLang.it,
+    );
+  }
+
+  void set(AppLang lang) {
+    ref.read(prefsProvider).setString(_key, lang.name);
+    state = lang;
+  }
+}

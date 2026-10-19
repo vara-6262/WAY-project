@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/glyphs.dart';
+import '../l10n/strings.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../fx/anchors.dart';
@@ -26,7 +27,7 @@ class PlacesScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const ScreenHeader(eyebrow: 'Contesto', title: 'Places'),
+        ScreenHeader(eyebrow: context.s.placesEyebrow, title: context.s.placesTitle),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
@@ -35,12 +36,12 @@ class PlacesScreen extends ConsumerWidget {
               if (active != null) ...[
                 const SizedBox(height: 10),
                 GhostButton(
-                  label: 'Svuota l\'hub',
+                  label: context.s.emptyHub,
                   onPressed: () {
                     ref.read(appProvider.notifier).clearActivePlace();
                     showToast(
                       context,
-                      'Nessun ambiente attivo: resta solo la core session',
+                      context.s.noActiveEnv,
                     );
                   },
                 ),
@@ -49,7 +50,7 @@ class PlacesScreen extends ConsumerWidget {
               const SectionLabel('I tuoi ambienti'),
               PrimaryButton(
                 key: placeCreateKey,
-                label: 'Crea un ambiente',
+                label: context.s.createEnv,
                 icon: Icons.add_rounded,
                 onPressed: () {
                   final guided = ref.read(tutorialActiveProvider) &&
@@ -76,9 +77,9 @@ class PlacesScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
               if (data.places.isEmpty)
-                const EmptyStateBox(
+                EmptyStateBox(
                   icon: Icons.place_outlined,
-                  title: 'Nessun ambiente',
+                  title: context.s.noEnvironments,
                   body:
                       'Un ambiente e\' un carico di lavoro che ha senso in un posto e in un periodo. Senza ambienti resta attiva solo la core session.',
                 ),
@@ -93,7 +94,7 @@ class PlacesScreen extends ConsumerWidget {
                 ),
               const SizedBox(height: 14),
               Text(
-                'Un solo ambiente per volta puo\' stare nell\'hub. Le statistiche si adattano al carico dell\'ambiente attivo, non a un carico fisso.',
+                context.s.hubNote,
                 style: WayFonts.ui(size: 12.5, color: context.c.inkSoft),
               ),
             ],
@@ -117,7 +118,7 @@ class _PlaceHub extends ConsumerWidget {
       onWillAcceptWithDetails: (details) => details.data.id != data.activePlaceId,
       onAcceptWithDetails: (details) {
         ref.read(appProvider.notifier).activatePlace(details.data.id);
-        showToast(context, 'Ambiente attivo: ${details.data.name}');
+        showToast(context, context.s.activeEnv(details.data.name));
       },
       builder: (context, candidate, rejected) {
         final hot = candidate.isNotEmpty;
@@ -376,13 +377,13 @@ class _PlaceCard extends StatelessWidget {
                     ),
                     if (isActive) ...[
                       const SizedBox(width: 7),
-                      Pill('Attivo', fg: c.accent, bg: c.accentTint),
+                      Pill(context.s.active, fg: c.accent, bg: c.accentTint),
                     ],
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$load task · core session ${place.useCore ? 'attiva' : 'disattivata'}',
+                  context.s.placeLoad(load, place.useCore),
                   style: WayFonts.mono(size: 10.5, color: c.inkFaint),
                 ),
               ],

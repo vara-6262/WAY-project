@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/dates.dart';
+import '../l10n/strings.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
 import '../models/sabus_scoring.dart';
@@ -62,12 +63,15 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
       ..sort((a, b) => a.s.compareTo(b.s));
 
     // ---- analisi number ----
-    final numberTasks = data.tasks.where((t) => t.kind == TaskKind.measure).toList();
+    final numberTasks = data.tasksInScope()
+        .where((t) => t.kind == TaskKind.measure && !t.archived)
+        .toList();
     final sel = _numberTaskId != null
         ? data.taskById(_numberTaskId!)
         : (numberTasks.isNotEmpty ? numberTasks.first : null);
-    final abstinenceTasks =
-        data.tasks.where((t) => t.kind == TaskKind.abstinence).toList();
+    final abstinenceTasks = data.tasksInScope()
+        .where((t) => t.kind == TaskKind.abstinence && !t.archived)
+        .toList();
     final selAbs = _absTaskId != null
         ? data.taskById(_absTaskId!)
         : (abstinenceTasks.isNotEmpty ? abstinenceTasks.first : null);
@@ -75,7 +79,7 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const ScreenHeader(eyebrow: 'Monitoraggio', title: 'Trend'),
+        ScreenHeader(eyebrow: context.s.monitoring, title: context.s.trendTitle),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
@@ -90,25 +94,25 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
                 ),
                 child: Row(
                   children: [
-                    _metric(context, 'PUNTI OGGI', pts.toStringAsFixed(1)),
+                    _metric(context, context.s.metricPointsToday, pts.toStringAsFixed(1)),
                     _sep(context),
-                    _metric(context, 'PUNTEGGIO',
+                    _metric(context, context.s.metricScore,
                         percentToday == null ? '—' : '$percentToday%'),
                     _sep(context),
-                    _metric(context, 'BONUS', '+$bonusPct%'),
+                    _metric(context, context.s.metricBonus, '+$bonusPct%'),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
 
               // streak in corso
-              const SectionLabel('Streak in corso'),
+              SectionLabel(context.s.streakInProgress),
               const SizedBox(height: 8),
               if (streaks.isEmpty)
-                const EmptyStateBox(
+                EmptyStateBox(
                   icon: Icons.local_fire_department_outlined,
-                  title: 'Nessuna streak attiva',
-                  body: 'Completa le task nei loro giorni: qui le costanze crescono.',
+                  title: context.s.noActiveStreak,
+                  body: context.s.noStreakBody,
                 )
               else
                 _panel(context, [
@@ -144,43 +148,49 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
               const SizedBox(height: 22),
 
               // forti / da curare
-              const SectionLabel('Salute delle abitudini'),
+              SectionLabel(context.s.habitsHealth),
               const SizedBox(height: 8),
               _panel(context, [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _rankCol(context, 'IN SALUTE', strong.take(4).toList())),
+                    Expanded(child: _rankCol(context, context.s.healthy, strong.take(4).toList())),
                     const SizedBox(width: 16),
-                    Expanded(child: _rankCol(context, 'DA CURARE', weak.take(4).toList())),
+                    Expanded(child: _rankCol(context, context.s.needsCare, weak.take(4).toList())),
                   ],
                 ),
               ]),
               const SizedBox(height: 22),
 
               // analisi
-              const SectionLabel('Analisi'),
+              SectionLabel(context.s.analysis),
               const SizedBox(height: 8),
               Segmented<_AnalysisMode>(
                 values: _AnalysisMode.values,
-                labels: const ['Number', 'Astinenze', 'Bonus'],
+                labels: [context.s.modeNumber, context.s.modeAbstinence, context.s.modeBonus],
                 selected: _mode,
                 onChanged: (m) => setState(() => _mode = m),
               ),
               const SizedBox(height: 8),
               Segmented<TrendRange>(
                 values: TrendRange.values,
-                labels: TrendRange.values.map((r) => r.label).toList(),
+                labels: TrendRange.values
+                    .map((r) => switch (r) {
+                          TrendRange.week => context.s.rangeWeek,
+                          TrendRange.month => context.s.rangeMonth,
+                          TrendRange.year => context.s.rangeYear,
+                        })
+                    .toList(),
                 selected: data.range,
                 onChanged: (r) => ref.read(appProvider.notifier).setRange(r),
               ),
               const SizedBox(height: 10),
               if (_mode == _AnalysisMode.number) ...[
                 if (numberTasks.isEmpty)
-                  const EmptyStateBox(
+                  EmptyStateBox(
                     icon: Icons.query_stats_outlined,
-                    title: 'Nessuna task a quantità',
-                    body: 'Le task di tipo misura appariranno qui.',
+                    title: context.s.noMeasureTask,
+                    body: context.s.noMeasureBody,
                   )
                 else ...[
                   Wrap(spacing: 6, runSpacing: 6, children: [
@@ -193,10 +203,10 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
                 ],
               ] else if (_mode == _AnalysisMode.abstinence) ...[
                 if (abstinenceTasks.isEmpty)
-                  const EmptyStateBox(
+                  EmptyStateBox(
                     icon: Icons.shield_outlined,
-                    title: 'Nessuna astinenza',
-                    body: 'Le astinenze appariranno qui, con la loro curva.',
+                    title: context.s.noAbstinence,
+                    body: context.s.noAbstinenceBody,
                   )
                 else ...[
                   Wrap(spacing: 6, runSpacing: 6, children: [
@@ -233,7 +243,7 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
         format: (v) => _num(v),
       ),
       const SizedBox(height: 10),
-      _footRow(context, 'MEDIA', _num(avg), 'MASSIMO', _num(peak)),
+      _footRow(context, context.s.avg, _num(avg), context.s.max, _num(peak)),
       const SizedBox(height: 4),
       Text('-- target ${_num(task.target)}',
           style: WayFonts.mono(size: 9, color: c.inkFaint)),
@@ -251,9 +261,9 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
       SmoothLineChart(
           values: values, labels: labels, color: c.easy, format: (v) => _num(v)),
       const SizedBox(height: 10),
-      _footRow(context, 'OGGI', _num(cur), 'PICCO', _num(peak)),
+      _footRow(context, context.s.today, _num(cur), context.s.peak, _num(peak)),
       const SizedBox(height: 4),
-      Text('Punti della campana: salgono verso il picco (τ=${task.tau}g) poi calano.',
+      Text(context.s.bellNote(task.tau),
           style: WayFonts.mono(size: 9, color: c.inkFaint)),
     ]);
   }
@@ -270,9 +280,9 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
       SmoothLineChart(
           values: values, labels: labels, color: c.easy, format: (v) => _num(v)),
       const SizedBox(height: 10),
-      _footRow(context, 'MEDIA', _num(avg), 'MASSIMO', _num(peak)),
+      _footRow(context, context.s.avg, _num(avg), context.s.max, _num(peak)),
       const SizedBox(height: 4),
-      Text('Punti dal bonus ogni giorno (cala dopo upgrade e fallimenti).',
+      Text(context.s.bonusTimeNote,
           style: WayFonts.mono(size: 9, color: c.inkFaint)),
     ]);
   }
@@ -286,7 +296,7 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
       case TrendRange.week:
         final days = _daysBack(7, today).where(task.activeOn).toList();
         return ([for (final d in days) f(d)],
-            [for (final d in days) Dates.dayShort[Dates.weekdayIndex(d)]]);
+            [for (final d in days) context.s.daysShort[Dates.weekdayIndex(d)]]);
       case TrendRange.month:
         final days = _daysBack(30, today).where(task.activeOn).toList();
         final step = days.length <= 7 ? 1 : (days.length ~/ 6 + 1);
@@ -317,7 +327,7 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
       case TrendRange.week:
         final days = _daysBack(7, today);
         return ([for (final d in days) b(d)],
-            [for (final d in days) Dates.dayShort[Dates.weekdayIndex(d)]]);
+            [for (final d in days) context.s.daysShort[Dates.weekdayIndex(d)]]);
       case TrendRange.month:
         final days = _daysBack(30, today);
         return ([for (final d in days) b(d)],
@@ -342,7 +352,7 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
         if (v != null) { sum += v; count++; }
       }
       values.add(count == 0 ? null : sum / count);
-      labels.add(Dates.months[anchor.month - 1].substring(0, 1).toUpperCase());
+      labels.add(context.s.months[anchor.month - 1].substring(0, 1).toUpperCase());
     }
     return (values, labels);
   }

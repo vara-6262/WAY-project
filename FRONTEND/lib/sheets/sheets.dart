@@ -1,12 +1,11 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:way/screens/wizard_scaffold.dart';
 
 import '../data/dates.dart';
+import '../l10n/strings.dart';
 import '../models/sabus_scoring.dart';
 import '../data/glyphs.dart';
 import '../models/app_data.dart';
@@ -252,7 +251,7 @@ Future<void> showTaskContextSheet(
                 children: [
                   Text(task.name, style: WayFonts.display(size: 18, color: c.ink)),
                   Text(
-                    'LV${task.level} · ${inCore ? 'nel nucleo' : 'fuori dal nucleo'}',
+                    'LV${task.level} Â· ${inCore ? context.s.inCore : context.s.outOfCore}',
                     style: WayFonts.ui(size: 12.5, color: c.inkSoft),
                   ),
                 ],
@@ -263,7 +262,7 @@ Future<void> showTaskContextSheet(
         const SizedBox(height: 14),
         SheetAction(
           icon: Icons.visibility_outlined,
-          label: 'Apri dettagli',
+          label: context.s.openDetails,
           onTap: () {
             Navigator.of(ctx).pop();
             showTaskDetailSheet(context, ref, task);
@@ -272,8 +271,8 @@ Future<void> showTaskContextSheet(
         SheetAction(
           icon: inCore ? Icons.remove_circle_outline : Icons.auto_awesome,
           label: inCore
-              ? 'Togli dalla Core Session'
-              : 'Aggiungi alla Core Session',
+              ? context.s.removeFromCore
+              : context.s.addToCore,
           onTap: () {
             ref.read(appProvider.notifier).toggleCore(task.id);
             Navigator.of(ctx).pop();
@@ -285,9 +284,18 @@ Future<void> showTaskContextSheet(
             );
           },
         ),
+        if (task.editable)
+          SheetAction(
+            icon: Icons.edit_outlined,
+            label: context.s.editTask,
+            onTap: () {
+              Navigator.of(ctx).pop();
+              showEditTaskSheet(context, ref, task);
+            },
+          ),
         SheetAction(
           icon: Icons.delete_outline,
-          label: 'Elimina task',
+          label: context.s.deleteTask,
           danger: true,
           onTap: () {
             Navigator.of(ctx).pop();
@@ -315,30 +323,30 @@ Future<void> showDeleteTaskSheet(
       mainAxisSize: MainAxisSize.min,
       children: [
         SheetTitle(
-          'Eliminare "${task.name}"?',
+          context.s.deleteConfirm(task.name),
           subtitle: usedByPlaces > 0 || alsoCore
-              ? 'Sparisce dal nucleo e dagli ambienti che la usano, insieme ai suoi criteri e al suo storico. Non si torna indietro.'
-              : 'Spariscono anche i suoi criteri e il suo storico. Non si torna indietro.',
+              ? context.s.deleteBodyCore
+              : context.s.deleteBodyPlain,
         ),
         const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               child: GhostButton(
-                label: 'Annulla',
+                label: context.s.cancel,
                 onPressed: () => Navigator.of(ctx).pop(),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: PrimaryButton(
-                label: 'Elimina',
+                label: context.s.delete,
                 color: context.c.hard,
                 foreground: Colors.white,
                 onPressed: () {
                   ref.read(appProvider.notifier).deleteTask(task.id);
                   Navigator.of(ctx).pop();
-                  showToast(context, 'Task eliminata');
+                  showToast(context, context.s.taskDeleted);
                 },
               ),
             ),
@@ -386,7 +394,7 @@ Future<void> showTaskDetailSheet(
                 children: [
                   Text(task.name, style: WayFonts.display(size: 18, color: c.ink)),
                   Text(
-                    'LV${task.level} · ${task.kind == TaskKind.measure ? 'Misura · ${task.reward == RewardCurve.exponential ? 'esponenziale' : 'lineare'}' : task.kind == TaskKind.maintenance ? 'Mantenimento' : task.kind == TaskKind.abstinence ? 'Astinenza' : 'Completa'}',
+                    'LV${task.level} Â· ${task.kind == TaskKind.measure ? '${context.s.kindMeasure} Â· ${task.reward == RewardCurve.exponential ? context.s.rewardExp : context.s.rewardLinear}' : task.kind == TaskKind.maintenance ? context.s.kindMaintain : task.kind == TaskKind.abstinence ? context.s.kindAbstinence : context.s.kindComplete}',
                     style: WayFonts.ui(size: 12.5, color: c.inkSoft),
                   ),
                 ],
@@ -427,7 +435,7 @@ Future<void> showTaskDetailSheet(
         Text('ORARIO', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
         const SizedBox(height: 6),
         Text(
-          '${task.start.toString().padLeft(2, '0')}:00 – ${task.end.toString().padLeft(2, '0')}:00 · ${task.period.label}',
+          '${task.start.toString().padLeft(2, '0')}:00 â ${task.end.toString().padLeft(2, '0')}:00 Â· ${task.period.label}',
           style: WayFonts.ui(size: 12.5, color: c.inkSoft),
         ),
         if (task.kind == TaskKind.measure) ...[
@@ -435,9 +443,16 @@ Future<void> showTaskDetailSheet(
           Text('TARGET', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
           const SizedBox(height: 6),
           Text(
-            'Obiettivo ${_num(task.target)}',
+            context.s.objective(_num(task.target)),
             style: WayFonts.ui(size: 12.5, color: c.inkSoft),
           ),
+          if (task.reward == RewardCurve.exponential) ...[
+            const SizedBox(height: 16),
+            Text(context.s.growthCurve,
+                style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+            const SizedBox(height: 10),
+            _GrowthCurveChart(task: task),
+          ],
         ],
         const SizedBox(height: 16),
         Text(
@@ -446,7 +461,7 @@ Future<void> showTaskDetailSheet(
         ),
         const SizedBox(height: 6),
         if (task.criteria.isEmpty)
-          Text('Nessun criterio.', style: WayFonts.ui(size: 12.5, color: c.inkFaint))
+          Text(context.s.noCriterion, style: WayFonts.ui(size: 12.5, color: c.inkFaint))
         else
           for (var i = 0; i < task.criteria.length; i++)
             Padding(
@@ -478,12 +493,33 @@ Future<void> showTaskDetailSheet(
         Text('PRESENTE IN', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
         const SizedBox(height: 6),
         Text(
-          places.isEmpty ? 'Nessun ambiente' : places.join(' · '),
+          places.isEmpty ? context.s.noEnvironments : places.join(' Â· '),
           style: WayFonts.ui(size: 12.5, color: c.inkSoft),
         ),
         const SizedBox(height: 18),
+        if (task.editable) ...[
+          GhostButton(
+            label: context.s.editTask,
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              showEditTaskSheet(context, ref, task);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (task.archived) ...[
+          GhostButton(
+            label: context.s.reactivateTask,
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              ref.read(appProvider.notifier).unarchiveTask(task);
+              showToast(context, context.s.taskReactivated);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
         GhostButton(
-          label: 'Elimina task',
+          label: context.s.deleteTask,
           foreground: c.hard,
           onPressed: () {
             Navigator.of(ctx).pop();
@@ -508,15 +544,15 @@ Future<void> showCorePickerSheet(BuildContext context, WidgetRef ref) async {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SheetTitle(
-                'Aggiungi alla Core Session',
+              SheetTitle(
+                context.s.addToCore,
                 subtitle:
-                    'Queste task valgono in ogni ambiente che tiene la core session attiva.',
+                    context.s.coreNote,
               ),
               const SizedBox(height: 14),
               if (available.isEmpty)
                 Text(
-                  'Tutte le task sono gia\' nel nucleo.',
+                  context.s.allInCore,
                   style: WayFonts.ui(size: 12.5, color: ctx2.c.inkFaint),
                 )
               else
@@ -554,9 +590,9 @@ Future<String?> showCriterionSheet(
         mainAxisSize: MainAxisSize.min,
         children: [
           SheetTitle(
-            initial == null ? 'Nuovo criterio' : 'Modifica criterio',
+            initial == null ? context.s.newCriterion : context.s.editCriterion,
             subtitle:
-                'Una condizione verificabile: se non e\' vera, la giornata non conta.',
+                context.s.criterionHelp,
           ),
           const SizedBox(height: 13),
           TextField(
@@ -592,7 +628,7 @@ Future<String?> showCriterionSheet(
               if (onDelete != null) ...[
                 Expanded(
                   child: GhostButton(
-                    label: 'Elimina',
+                    label: context.s.delete,
                     foreground: c.hard,
                     onPressed: () {
                       onDelete();
@@ -605,7 +641,7 @@ Future<String?> showCriterionSheet(
               Expanded(
                 flex: 2,
                 child: PrimaryButton(
-                  label: 'Salva',
+                  label: context.s.save,
                   onPressed: () {
                     final text = controller.text.trim();
                     if (text.isEmpty) return;
@@ -657,7 +693,7 @@ Future<void> showPlaceDetailSheet(
                 children: [
                   Text(place.name, style: WayFonts.display(size: 18, color: c.ink)),
                   Text(
-                    'Core session ${place.useCore ? 'attiva' : 'disattivata'}',
+                    context.s.coreSessionState(place.useCore),
                     style: WayFonts.ui(size: 12.5, color: c.inkSoft),
                   ),
                 ],
@@ -676,7 +712,7 @@ Future<void> showPlaceDetailSheet(
         ),
         const SizedBox(height: 8),
         if (tasks.isEmpty)
-          Text('Nessuna task.', style: WayFonts.ui(size: 12.5, color: c.inkFaint))
+          Text(context.s.noTasks, style: WayFonts.ui(size: 12.5, color: c.inkFaint))
         else
           for (final t in tasks)
             PickRow(
@@ -690,7 +726,7 @@ Future<void> showPlaceDetailSheet(
           children: [
             Expanded(
               child: GhostButton(
-                label: 'Modifica',
+                label: context.s.edit,
                 onPressed: () {
                   Navigator.of(ctx).pop();
                   Navigator.of(context).push(
@@ -705,11 +741,11 @@ Future<void> showPlaceDetailSheet(
               const SizedBox(width: 8),
               Expanded(
                 child: PrimaryButton(
-                  label: 'Attiva',
+                  label: context.s.activate,
                   onPressed: () {
                     ref.read(appProvider.notifier).activatePlace(place.id);
                     Navigator.of(ctx).pop();
-                    showToast(context, 'Ambiente attivo: ${place.name}');
+                    showToast(context, context.s.activeEnv(place.name));
                   },
                 ),
               ),
@@ -718,12 +754,12 @@ Future<void> showPlaceDetailSheet(
         ),
         const SizedBox(height: 8),
         GhostButton(
-          label: 'Elimina ambiente',
+          label: context.s.deleteEnvironment,
           foreground: c.hard,
           onPressed: () {
             ref.read(appProvider.notifier).deletePlace(place.id);
             Navigator.of(ctx).pop();
-            showToast(context, 'Ambiente eliminato');
+            showToast(context, context.s.environmentDeleted);
           },
         ),
       ],
@@ -749,248 +785,208 @@ String _fmtWhen(DateTime d) {
 /// Le due modalita' non sono un interruttore da prodotto finito: servono
 /// a mostrare l'app popolata oppure il primo utilizzo. Ognuna ha il suo
 /// archivio, quindi passare dall'una all'altra non distrugge il lavoro.
-Future<void> showProfileSheet(BuildContext context, WidgetRef ref) async {
-  await showAppSheet<void>(
-    context,
-    builder: (ctx) => Consumer(
-      builder: (ctx2, ref2, _) {
-        final c = ctx2.c;
-        final mode = ref2.watch(modeProvider);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: c.surface2,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: c.line),
-                  ),
-                  child: Text('M', style: WayFonts.display(size: 16, color: c.ink)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Manuel',
-                          style: WayFonts.display(size: 18, color: c.ink)),
-                      Text('Profilo personale',
-                          style: WayFonts.ui(size: 12.5, color: c.inkSoft)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text('MODALITÀ PROTOTIPO',
-                style: WayFonts.label(color: c.inkFaint, size: 9.5)),
-            const SizedBox(height: 8),
-            Segmented<PrototypeMode>(
-              values: PrototypeMode.values,
-              labels: const ['Proxy', 'Configura da 0'],
-              selected: mode,
-              onChanged: (m) => ref2.read(modeProvider.notifier).set(m),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              mode == PrototypeMode.zero
-                  ? 'Archivio vuoto con il tutorial del primo utilizzo.'
-                  : 'Demo popolata: cinque task, tre ambienti, 90 giorni di storico.',
-              style: WayFonts.ui(size: 11.5, color: c.inkFaint),
-            ),
-            const SizedBox(height: 18),
-            Text('TEMA', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                for (final preset in WayColors.presets)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () =>
-                            ref2.read(themeProvider.notifier).setId(preset.$1),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 11),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: preset.$3.surface2,
-                            border: Border.all(
-                              color: identical(preset.$3, ref2.watch(themeProvider))
-                                  ? preset.$3.accent
-                                  : c.line,
-                              width: identical(preset.$3, ref2.watch(themeProvider))
-                                  ? 2
-                                  : 1,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            children: [
-                              Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                    color: preset.$3.accent, shape: BoxShape.circle),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(preset.$2,
-                                  style: WayFonts.mono(
-                                      size: 9.5,
-                                      weight: FontWeight.w700,
-                                      color: c.inkSoft)),
-                            ],
-                          ),
-                        ),
-                      ),
+
+Future<void> showEditTaskSheet(
+        BuildContext context, WidgetRef ref, Task task) =>
+    showAppSheet<void>(context, builder: (ctx) => _EditTaskSheet(task: task));
+
+class _EditTaskSheet extends ConsumerStatefulWidget {
+  const _EditTaskSheet({required this.task});
+  final Task task;
+  @override
+  ConsumerState<_EditTaskSheet> createState() => _EditTaskSheetState();
+}
+
+class _EditTaskSheetState extends ConsumerState<_EditTaskSheet> {
+  late final TextEditingController _name;
+  late final List<String> _criteria;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.task.name);
+    _criteria = [for (final cr in widget.task.criteria) cr.text];
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final s = context.s;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetTitle(s.editTask, subtitle: s.editWindowNote),
+        const SizedBox(height: 16),
+        LabeledField(label: s.name, controller: _name, hint: s.nameHint),
+        const SizedBox(height: 16),
+        Text(s.criteriaLabel,
+            style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+        const SizedBox(height: 8),
+        for (var i = 0; i < _criteria.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Row(children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () async {
+                    final r =
+                        await showCriterionSheet(context, initial: _criteria[i]);
+                    if (r != null && r.isNotEmpty) {
+                      setState(() => _criteria[i] = r);
+                    }
+                  },
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: c.surface2,
+                      border: Border.all(color: c.line),
+                      borderRadius: BorderRadius.circular(11),
                     ),
+                    child: Text(_criteria[i],
+                        style: WayFonts.ui(size: 13, color: c.ink)),
                   ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text('NOTIFICHE', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
-            const SizedBox(height: 8),
-            Builder(builder: (_) {
-              final nx = ref2
-                  .read(notificationsProvider)
-                  .next(ref2.read(appProvider));
-              return Text(
-                nx == null
-                    ? 'Nessuna notifica programmata.'
-                    : 'Prossima: ${_fmtWhen(nx.when)} · ${nx.text}',
-                style: WayFonts.ui(size: 12, color: c.inkFaint),
-              );
-            }),
-            const SizedBox(height: 8),
-            GhostButton(
-              label: 'Invia notifica di test',
-              onPressed: () async {
-                await ref2.read(notificationsProvider).sendTest();
-                showToast(context, 'Notifica di test inviata');
-              },
-            ),
-            const SizedBox(height: 8),
-            GhostButton(
-              label: 'Riprogramma promemoria',
-              onPressed: () async {
-                final n = ref2.read(notificationsProvider);
-                await n.scheduleFor(ref2.read(appProvider));
-                final count = await n.pendingCount();
-                showToast(context, 'Promemoria programmati: $count');
-              },
-            ),
-            const SizedBox(height: 8),
-            GhostButton(
-              label: 'Notifica tra 1 minuto (test)',
-              onPressed: () async {
-                final n = ref2.read(notificationsProvider);
-                if (!await n.canExact()) {
-                  await n.requestExact(); // apre le impostazioni sveglie esatte
-                }
-                final diag = await n.sendDelayedTest();
-                if (!context.mounted) return;
-                showDialog<void>(
-                  context: context,
-                  builder: (dctx) => AlertDialog(
-                    title: const Text('Test notifica programmata'),
-                    content: Text(diag),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(dctx).pop(),
-                        child: const Text('OK'),
-                      ),
-                    ],
-                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => setState(() => _criteria.removeAt(i)),
+                child: Icon(Icons.close, size: 18, color: c.inkFaint),
+              ),
+            ]),
+          ),
+        GhostButton(
+          label: s.addCriterion,
+          onPressed: () async {
+            final r = await showCriterionSheet(context);
+            if (r != null && r.isNotEmpty) setState(() => _criteria.add(r));
+          },
+        ),
+        const SizedBox(height: 16),
+        PrimaryButton(
+          label: s.save,
+          onPressed: () {
+            final name = _name.text.trim();
+            if (name.isEmpty) return;
+            ref.read(appProvider.notifier).applyTaskEdit(
+                  widget.task,
+                  name: name,
+                  requirements: _criteria,
                 );
-              },
-            ),
-            const SizedBox(height: 8),
-            GhostButton(
-              label: 'Esporta backup negli appunti',
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(
-                    text: ref2.read(appProvider.notifier).exportState()));
-                showToast(context,
-                    'Backup copiato — incollalo in un file per salvarlo');
-              },
-            ),
-            const SizedBox(height: 8),
-            GhostButton(
-              label: 'Condividi backup (Drive / File)',
-              onPressed: () async {
-                try {
-                  final json = ref2.read(appProvider.notifier).exportState();
-                  final dir = await getTemporaryDirectory();
-                  final f = File('${dir.path}/way_backup.json');
-                  await f.writeAsString(json);
-                  await Share.shareXFiles([XFile(f.path)],
-                      subject: 'Backup WAY');
-                } catch (_) {
-                  if (context.mounted) {
-                    showToast(context, 'Condivisione non riuscita');
-                  }
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            GhostButton(
-              label: 'Importa backup dagli appunti',
-              onPressed: () async {
-                final d = await Clipboard.getData('text/plain');
-                final ok = d?.text != null &&
-                    ref2.read(appProvider.notifier).importState(d!.text!);
-                if (!context.mounted) return;
-                showToast(context,
-                    ok ? 'Backup ripristinato' : 'Backup non valido');
-              },
-            ),
-            const SizedBox(height: 8),
-            GhostButton(
-              label: 'Report bonus (debug)',
-              onPressed: () {
-                final report =
-                    ref2.read(appProvider).bonusReport(Dates.today());
-                showDialog<void>(
-                  context: context,
-                  builder: (dctx) => AlertDialog(
-                    title: const Text('Composizione bonus'),
-                    content: SizedBox(
-                      width: double.maxFinite,
-                      child: SingleChildScrollView(
-                        child: SelectableText(report,
-                            style:
-                                WayFonts.mono(size: 11, color: context.c.ink)),
-                      ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(dctx).pop(),
-                        child: const Text('OK'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 18),
-            GhostButton(
-              label: 'Reimposta questa modalità',
-              foreground: c.hard,
-              onPressed: () {
-                ref2.read(appProvider.notifier).resetCurrentMode();
-                Navigator.of(ctx2).pop();
-                showToast(context, 'Archivio reimpostato');
-              },
-            ),
-          ],
-        );
-      },
-    ),
-  );
+            Navigator.of(context).pop();
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// Curva di crescita del number esponenziale: punti in funzione del progresso
+/// (0 -> target) al livello attuale (pieno) e al successivo (trasparente).
+class _GrowthCurveChart extends StatelessWidget {
+  const _GrowthCurveChart({required this.task});
+  final Task task;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SizedBox(
+        height: 118,
+        child: CustomPaint(
+          painter: _GrowthCurvePainter(
+            task: task,
+            current: c.accent,
+            next: c.accent.withValues(alpha: 0.28),
+            grid: c.lineSoft,
+          ),
+          child: const SizedBox.expand(),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Row(children: [
+        _dot(c.accent),
+        const SizedBox(width: 5),
+        Text('LV${task.level}',
+            style: WayFonts.mono(size: 9.5, color: c.inkSoft)),
+        const SizedBox(width: 14),
+        _dot(c.accent.withValues(alpha: 0.4)),
+        const SizedBox(width: 5),
+        Text('LV${task.level + 1}',
+            style: WayFonts.mono(size: 9.5, color: c.inkFaint)),
+        const Spacer(),
+        Text('0 → target',
+            style: WayFonts.mono(size: 9, color: c.inkFaint)),
+      ]),
+    ]);
+  }
+
+  Widget _dot(Color col) => Container(
+      width: 8, height: 8,
+      decoration: BoxDecoration(color: col, shape: BoxShape.circle));
+}
+
+class _GrowthCurvePainter extends CustomPainter {
+  _GrowthCurvePainter(
+      {required this.task,
+      required this.current,
+      required this.next,
+      required this.grid});
+  final Task task;
+  final Color current, next, grid;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const pad = 3.0, n = 48;
+    final w = size.width - pad * 2;
+    final h = size.height - pad * 2;
+    final cur = <double>[];
+    final nxt = <double>[];
+    for (var i = 0; i <= n; i++) {
+      final p = i / n;
+      cur.add(numberCurvePoint(task, p, task.level));
+      nxt.add(numberCurvePoint(task, p, task.level + 1));
+    }
+    final maxY = [...cur, ...nxt].reduce((a, b) => a > b ? a : b);
+    if (maxY <= 0) return;
+    Offset at(int i, List<double> v) =>
+        Offset(pad + (i / n) * w, pad + h - (v[i] / maxY) * h);
+
+    canvas.drawLine(Offset(pad, pad + h), Offset(pad + w, pad + h),
+        Paint()..color = grid..strokeWidth = 1);
+
+    Path pathOf(List<double> v) {
+      final path = Path()..moveTo(at(0, v).dx, at(0, v).dy);
+      for (var i = 1; i <= n; i++) {
+        path.lineTo(at(i, v).dx, at(i, v).dy);
+      }
+      return path;
+    }
+
+    canvas.drawPath(
+        pathOf(nxt),
+        Paint()
+          ..color = next
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round);
+    canvas.drawPath(
+        pathOf(cur),
+        Paint()
+          ..color = current
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4
+          ..strokeCap = StrokeCap.round);
+  }
+
+  @override
+  bool shouldRepaint(_GrowthCurvePainter old) =>
+      old.task.level != task.level || old.task.reward != task.reward;
 }

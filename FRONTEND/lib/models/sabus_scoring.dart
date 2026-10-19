@@ -21,6 +21,15 @@ const double _absPeak = 3.0;    // reward massimo al picco della campana
 ///   per l'esponenziale -> salendo di livello i valori bassi rendono sempre meno
 ///   e il grosso del reward si concentra vicino al target;
 /// - sopra target: piccolo extra cappato (il superamento non e' il focus).
+/// Punti di un number al progresso [p] (0..1) a un dato [level]. Usata per
+/// disegnare la curva di crescita nel dettaglio (si ferma a target, p<=1).
+double numberCurvePoint(Task t, double p, int level) {
+  final mult = 1 + 0.5 * level;
+  final k = t.reward == RewardCurve.exponential ? 1 + _expPolar * level : 1.0;
+  final pc = p < 0 ? 0.0 : (p > 1 ? 1.0 : p);
+  return _numBase * mult * math.pow(pc, k).toDouble();
+}
+
 double _numberPoints(
     double v, double target, double mult, int level, RewardCurve curve) {
   if (target <= 0) return 0.0;
@@ -57,8 +66,6 @@ extension SabusScoring on AppData {
   static const double absEndK = 3.0; // fine astinenza a ~absEndK * tau
 
   // Settimanale + mantenimento
-  static const double ecoMax = 0.7; // tetto eco (task rarissime); scala con la frequenza
-  static const int ecoWindow = 8; // giorni max di eco dopo l'ultima occorrenza
 
   bool isWeekly(Task t) => t.period == DomainPeriod.weekly;
 
@@ -81,53 +88,24 @@ extension SabusScoring on AppData {
     return false;
   }
 
-  /// Eco di mantenimento (solo settimanali): 70% dell'ultima occorrenza
-  /// riuscita entro [ecoWindow] giorni.
   /// Occorrenze previste a settimana (frequenza della task).
   int weeklyOccurrences(Task t) {
     if (isWeekly(t)) return 1;
     return t.days.isEmpty ? 7 : t.days.length;
   }
 
-  /// Fattore eco: piu' la task e' frequente, meno vale l'eco.
-  /// Lineare: ecoMax a bassa frequenza, 0 per una task di tutti i giorni.
-  double ecoFactor(Task t) {
-    final freq = (weeklyOccurrences(t) / 7).clamp(0.0, 1.0);
-    final f = ecoMax * (1 - freq);
-    return f < 0 ? 0 : f;
-  }
-
-  double ecoPoints(Task t, DateTime day) {
-    final k = ecoFactor(t);
-    if (k <= 0) return 0;
-    for (var back = 1; back <= ecoWindow; back++) {
-      final d = Dates.addDays(day, -back);
-      if (t.activeOn(d) && taskCounts(t, d)) return k * taskPoints(t, d);
-    }
-    return 0;
-  }
-
-  /// Punti effettivi di una task in un giorno (occorrenza piena oppure eco).
+  /// Punti effettivi di una task in un giorno (solo l'occorrenza, niente eco).
   double taskDayEarned(Task t, DateTime day) {
-    if (isWeekly(t)) {
-      if (t.activeOn(day) && taskCounts(t, day)) return taskPoints(t, day);
-      return ecoPoints(t, day);
-    }
-    if (t.activeOn(day)) return taskPoints(t, day);
-    // Giornaliere: eco nei giorni off, solo per complete/misura.
-    if (t.kind == TaskKind.complete || t.kind == TaskKind.measure) {
-      return ecoPoints(t, day);
-    }
-    return 0;
+    if (!t.activeOn(day)) return 0;
+    if (isWeekly(t) && !taskCounts(t, day)) return 0;
+    return taskPoints(t, day);
   }
 
   /// Punti attesi di una task in un giorno (denominatore della percentuale).
   double taskDayExpected(Task t, DateTime day) {
-    if (isWeekly(t)) {
-      if (t.activeOn(day) && taskCounts(t, day)) return expectedAtTarget(t);
-      return ecoPoints(t, day);
-    }
-    return t.activeOn(day) ? expectedAtTarget(t) : 0;
+    if (!t.activeOn(day)) return 0;
+    if (isWeekly(t) && !taskCounts(t, day)) return 0;
+    return expectedAtTarget(t);
   }
 
   /// Statistiche recenti (finestra) per modulare la soglia:
@@ -228,9 +206,14 @@ extension SabusScoring on AppData {
     return tasksFor(today).where((t) {
       switch (f) {
         case HomeFilter.disponibili:
+          // Una task "completa" resta disponibile se c'e' ancora qualcosa da
+          // fare: un number puo' sforare il target per piu' punti, e una task
+          // pronta all'upgrade si puo' far salire di livello da qui.
+          final keepDespiteDone =
+              t.kind == TaskKind.measure || upgradeReady(t);
           return !hiddenSet.contains(t.id) &&
               !weeklySatisfied(t) &&
-              !isDone(t) &&
+              (!isDone(t) || keepDespiteDone) &&
               inWindowNow(t);
         case HomeFilter.tutte:
           return true;
@@ -332,10 +315,14 @@ extension SabusScoring on AppData {
       if (t.activeOn(day)) {
         if (taskCounts(t, day)) {
           streak++;
-        } else if (i != 0) {
-          break; // un giorno passato mancato spezza
+        } else {
+          // La grazia "oggi in sospeso" vale solo per complete/misura
+          // (non ancora fatto). Per mantenimento/astinenza un oggi
+          // compromesso e' un fallimento esplicito e spezza subito.
+          final todayPending = i == 0 &&
+              (t.kind == TaskKind.complete || t.kind == TaskKind.measure);
+          if (!todayPending) break;
         }
-        // oggi non ancora fatto: in sospeso, non spezza lo streak
       }
       day = Dates.addDays(day, -1);
     }
@@ -417,27 +404,19 @@ extension SabusScoring on AppData {
   }
 
   /// Scomposizione del punteggio del giorno: occorrenze, mantenimento (eco), bonus.
-  ({double active, double maint, double eco, double bonus}) dayBreakdown(
-      DateTime day) {
-    var active = 0.0, maint = 0.0, eco = 0.0;
+  ({double active, double maint, double bonus}) dayBreakdown(DateTime day) {
+    var active = 0.0, maint = 0.0;
     for (final t in tasksInScope()) {
       final e = taskDayEarned(t, day);
       if (e <= 0) continue;
       if (t.kind == TaskKind.maintenance || t.kind == TaskKind.abstinence) {
-        maint += e; // passivi DA TASK: mantenimento/astinenza intatti oggi
+        maint += e; // passivi da task
       } else {
-        final occ = isWeekly(t)
-            ? (t.activeOn(day) && taskCounts(t, day))
-            : t.activeOn(day);
-        if (occ) {
-          active += e; // fatto oggi (occorrenza reale)
-        } else {
-          eco += e; // ECO: meccanica (fuori occorrenza, giornaliere incluse)
-        }
+        active += e; // fatto oggi
       }
     }
-    final bonus = (active + maint + eco) * dayBonusFraction(day);
-    return (active: active, maint: maint, eco: eco, bonus: bonus);
+    final bonus = (active + maint) * dayBonusFraction(day);
+    return (active: active, maint: maint, bonus: bonus);
   }
 
   /// Percentuale Sabus del giorno = punti*(1+bonus)/attesi*100 (può superare 100).

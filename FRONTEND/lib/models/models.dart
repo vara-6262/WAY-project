@@ -69,6 +69,7 @@ class Task {
     this.fail = 0,
     this.streakSince,
     this.createdOn,
+    this.editableUntil,
     this.archived = false,
     this.locked = false,
     required this.level,
@@ -107,6 +108,13 @@ class Task {
   /// Nascita della task: prima di questa data non esiste (niente punti/streak).
   final DateTime? createdOn;
 
+  /// Entro questo istante i requisiti si possono ancora correggere
+  /// (finestra di 12h dopo creazione/upgrade).
+  final DateTime? editableUntil;
+
+  bool get editable =>
+      editableUntil != null && DateTime.now().isBefore(editableUntil!);
+
   /// Task conclusa/archiviata (fuori dallo scope).
   final bool archived;
 
@@ -143,6 +151,7 @@ class Task {
     int? fail,
     DateTime? streakSince,
     DateTime? createdOn,
+    DateTime? editableUntil,
     bool? archived,
     bool? locked,
     int? level,
@@ -166,6 +175,7 @@ class Task {
       fail: fail ?? this.fail,
       streakSince: streakSince ?? this.streakSince,
       createdOn: createdOn ?? this.createdOn,
+      editableUntil: editableUntil ?? this.editableUntil,
       archived: archived ?? this.archived,
       locked: locked ?? this.locked,
       level: level ?? this.level,
@@ -192,6 +202,7 @@ class Task {
         'fail': fail,
         'streakSince': streakSince?.toIso8601String(),
         'createdOn': createdOn?.toIso8601String(),
+        'editableUntil': editableUntil?.toIso8601String(),
         'archived': archived,
         'level': level,
         'streak': streak,
@@ -228,6 +239,9 @@ class Task {
         fail: (j['fail'] as num?)?.toInt() ?? 0,
         streakSince: j['streakSince'] != null
             ? DateTime.parse(j['streakSince'] as String)
+            : null,
+        editableUntil: j['editableUntil'] != null
+            ? DateTime.parse(j['editableUntil'] as String)
             : null,
         createdOn: j['createdOn'] != null
             ? DateTime.parse(j['createdOn'] as String)

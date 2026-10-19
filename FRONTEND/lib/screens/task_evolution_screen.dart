@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../fx/fx_controller.dart';
+import '../l10n/strings.dart';
 import '../fx/reward.dart';
 import '../models/models.dart';
 import '../state/providers.dart';
@@ -107,7 +108,7 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                   ),
                   GestureDetector(
                     onTap: () => Navigator.of(context).maybePop(),
-                    child: Text('Chiudi',
+                    child: Text(context.s.close,
                         style: WayFonts.ui(size: 12, weight: FontWeight.w700, color: c.inkFaint)),
                   ),
                 ],
@@ -118,13 +119,13 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                 padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
                 children: [
                   ExplainBox(upgrade
-                      ? 'Sali di livello ridefinendo requisiti e dominio (piu impegnativa); Mantieni per fermare la crescita del bonus restando al livello attuale; Consolida per bloccare gli upgrade e lasciar crescere solo lo streak.'
-                      : 'Tre fallimenti di fila: ridefinisci per renderla sostenibile. Il downgrade e opzionale.'),
+                      ? context.s.evolveUpgradeHelp
+                      : context.s.evolveReconfigHelp),
                   const SizedBox(height: 16),
                   if (t.kind == TaskKind.complete && upgrade) ...[
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text('Trasforma in misura',
+                      title: Text(context.s.transformToMeasure,
                           style: WayFonts.ui(size: 13.5, color: c.ink)),
                       subtitle: Text('Da fatto/non fatto a quantita; eredita i requisiti.',
                           style: WayFonts.mono(size: 9.5, color: c.inkFaint)),
@@ -141,9 +142,9 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                       child: Row(children: [
                         Expanded(
                           child: LabeledField(
-                            label: 'Requisito ${i + 1}',
+                            label: context.s.requirementN(i + 1),
                             controller: _reqs[i],
-                            hint: 'condizione...',
+                            hint: context.s.conditionHint,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -163,7 +164,7 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                   if (showTarget) ...[
                     const SizedBox(height: 16),
                     LabeledField(
-                      label: 'Target giornaliero',
+                      label: context.s.dailyTarget,
                       controller: _target,
                       hint: 'es. 3',
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -186,7 +187,7 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                     const SizedBox(height: 14),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text('Scendi di livello (-1)',
+                      title: Text(context.s.levelDown,
                           style: WayFonts.ui(size: 13.5, color: c.ink)),
                       value: _downgrade,
                       onChanged: (v) => setState(() => _downgrade = v),
@@ -204,7 +205,7 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
               child: upgrade
                   ? Column(mainAxisSize: MainAxisSize.min, children: [
                       PrimaryButton(
-                        label: 'Sali di livello',
+                        label: context.s.levelUpAction,
                         onPressed: () {
                           final from = t.level;
                           ref.read(appProvider.notifier).applyUpgrade(
@@ -231,7 +232,7 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                       Row(children: [
                         Expanded(
                           child: GhostButton(
-                            label: 'Mantieni',
+                            label: context.s.keepAction,
                             onPressed: () {
                               ref.read(appProvider.notifier).keepTask(t);
                               Navigator.of(context).maybePop();
@@ -241,7 +242,7 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: GhostButton(
-                            label: 'Consolida',
+                            label: context.s.consolidate,
                             onPressed: () {
                               ref.read(appProvider.notifier).consolidateTask(t);
                               Navigator.of(context).maybePop();
@@ -251,7 +252,7 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                       ]),
                     ])
                   : PrimaryButton(
-                      label: 'Conferma',
+                      label: context.s.confirm,
                       onPressed: () {
                         ref.read(appProvider.notifier).applyReconfig(
                               t,
