@@ -63,12 +63,15 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
       ..sort((a, b) => a.s.compareTo(b.s));
 
     // ---- analisi number ----
-    final numberTasks = data.tasks.where((t) => t.kind == TaskKind.measure).toList();
+    final numberTasks = data.tasksInScope()
+        .where((t) => t.kind == TaskKind.measure && !t.archived)
+        .toList();
     final sel = _numberTaskId != null
         ? data.taskById(_numberTaskId!)
         : (numberTasks.isNotEmpty ? numberTasks.first : null);
-    final abstinenceTasks =
-        data.tasks.where((t) => t.kind == TaskKind.abstinence).toList();
+    final abstinenceTasks = data.tasksInScope()
+        .where((t) => t.kind == TaskKind.abstinence && !t.archived)
+        .toList();
     final selAbs = _absTaskId != null
         ? data.taskById(_absTaskId!)
         : (abstinenceTasks.isNotEmpty ? abstinenceTasks.first : null);

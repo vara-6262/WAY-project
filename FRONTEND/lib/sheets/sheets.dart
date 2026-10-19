@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:way/screens/wizard_scaffold.dart';
 
 import '../data/dates.dart';
 import '../l10n/strings.dart';
@@ -506,6 +507,17 @@ Future<void> showTaskDetailSheet(
           ),
           const SizedBox(height: 8),
         ],
+        if (task.archived) ...[
+          GhostButton(
+            label: context.s.reactivateTask,
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              ref.read(appProvider.notifier).unarchiveTask(task);
+              showToast(context, context.s.taskReactivated);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
         GhostButton(
           label: context.s.deleteTask,
           foreground: c.hard,
@@ -532,7 +544,7 @@ Future<void> showCorePickerSheet(BuildContext context, WidgetRef ref) async {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SheetTitle(
+              SheetTitle(
                 context.s.addToCore,
                 subtitle:
                     context.s.coreNote,

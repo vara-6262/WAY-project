@@ -317,6 +317,14 @@ class AppController extends Notifier<AppData> {
 
   void archiveTask(Task t) => updateTask(t.copyWith(archived: true));
 
+  /// Riabilita una task archiviata, ripartendo da zero (streak fresco).
+  void unarchiveTask(Task t) => updateTask(t.copyWith(
+        archived: false,
+        succ: 0,
+        fail: 0,
+        streakSince: Dates.today(),
+      ));
+
   /// Nasconde una task dalla Home per il giorno corrente (swipe).
   void hideTaskToday(String taskId) {
     final today = Dates.key(Dates.today());

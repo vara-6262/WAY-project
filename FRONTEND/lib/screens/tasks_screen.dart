@@ -121,10 +121,13 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                     for (final task in data.tasks)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: _DraggableTaskStrip(
-                          task: task,
-                          inCore: data.isCore(task.id),
-                          onDragStateChanged: _setDragging,
+                        child: Opacity(
+                          opacity: task.archived ? 0.45 : 1.0,
+                          child: _DraggableTaskStrip(
+                            task: task,
+                            inCore: data.isCore(task.id),
+                            onDragStateChanged: _setDragging,
+                          ),
                         ),
                       ),
                   ],

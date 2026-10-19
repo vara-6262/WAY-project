@@ -531,6 +531,9 @@ class S {
 
   String get growthCurve => _p('CURVA DI CRESCITA', 'GROWTH CURVE');
 
+  String get reactivateTask => _p('Riabilita task', 'Reactivate task');
+  String get taskReactivated => _p('Task riabilitata', 'Task reactivated');
+
   // --- date (nomi localizzati, gia' capitalizzati) ---
   List<String> get months => lang == AppLang.en
       ? const [
