@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:way/screens/wizard_scaffold.dart';
 
 import '../data/dates.dart';
 import '../l10n/strings.dart';
@@ -251,7 +250,7 @@ Future<void> showTaskContextSheet(
                 children: [
                   Text(task.name, style: WayFonts.display(size: 18, color: c.ink)),
                   Text(
-                    'LV${task.level} · ${inCore ? context.s.inCore : context.s.outOfCore}',
+                    'LV${task.level} Â· ${inCore ? context.s.inCore : context.s.outOfCore}',
                     style: WayFonts.ui(size: 12.5, color: c.inkSoft),
                   ),
                 ],
@@ -394,7 +393,7 @@ Future<void> showTaskDetailSheet(
                 children: [
                   Text(task.name, style: WayFonts.display(size: 18, color: c.ink)),
                   Text(
-                    'LV${task.level} · ${task.kind == TaskKind.measure ? '${context.s.kindMeasure} · ${task.reward == RewardCurve.exponential ? context.s.rewardExp : context.s.rewardLinear}' : task.kind == TaskKind.maintenance ? context.s.kindMaintain : task.kind == TaskKind.abstinence ? context.s.kindAbstinence : context.s.kindComplete}',
+                    'LV${task.level} Â· ${task.kind == TaskKind.measure ? '${context.s.kindMeasure} Â· ${task.reward == RewardCurve.exponential ? context.s.rewardExp : context.s.rewardLinear}' : task.kind == TaskKind.maintenance ? context.s.kindMaintain : task.kind == TaskKind.abstinence ? context.s.kindAbstinence : context.s.kindComplete}',
                     style: WayFonts.ui(size: 12.5, color: c.inkSoft),
                   ),
                 ],
@@ -435,7 +434,7 @@ Future<void> showTaskDetailSheet(
         Text('ORARIO', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
         const SizedBox(height: 6),
         Text(
-          '${task.start.toString().padLeft(2, '0')}:00 – ${task.end.toString().padLeft(2, '0')}:00 · ${task.period.label}',
+          '${task.start.toString().padLeft(2, '0')}:00 â ${task.end.toString().padLeft(2, '0')}:00 Â· ${task.period.label}',
           style: WayFonts.ui(size: 12.5, color: c.inkSoft),
         ),
         if (task.kind == TaskKind.measure) ...[
@@ -446,6 +445,13 @@ Future<void> showTaskDetailSheet(
             context.s.objective(_num(task.target)),
             style: WayFonts.ui(size: 12.5, color: c.inkSoft),
           ),
+          if (task.reward == RewardCurve.exponential) ...[
+            const SizedBox(height: 16),
+            Text(context.s.growthCurve,
+                style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+            const SizedBox(height: 10),
+            _GrowthCurveChart(task: task),
+          ],
         ],
         const SizedBox(height: 16),
         Text(
@@ -486,10 +492,20 @@ Future<void> showTaskDetailSheet(
         Text('PRESENTE IN', style: WayFonts.label(color: c.inkFaint, size: 9.5)),
         const SizedBox(height: 6),
         Text(
-          places.isEmpty ? context.s.noEnvironments : places.join(' · '),
+          places.isEmpty ? context.s.noEnvironments : places.join(' Â· '),
           style: WayFonts.ui(size: 12.5, color: c.inkSoft),
         ),
         const SizedBox(height: 18),
+        if (task.editable) ...[
+          GhostButton(
+            label: context.s.editTask,
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              showEditTaskSheet(context, ref, task);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
         GhostButton(
           label: context.s.deleteTask,
           foreground: c.hard,
@@ -516,7 +532,7 @@ Future<void> showCorePickerSheet(BuildContext context, WidgetRef ref) async {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              SheetTitle(
+              const SheetTitle(
                 context.s.addToCore,
                 subtitle:
                     context.s.coreNote,
@@ -858,4 +874,107 @@ class _EditTaskSheetState extends ConsumerState<_EditTaskSheet> {
       ],
     );
   }
+}
+
+/// Curva di crescita del number esponenziale: punti in funzione del progresso
+/// (0 -> target) al livello attuale (pieno) e al successivo (trasparente).
+class _GrowthCurveChart extends StatelessWidget {
+  const _GrowthCurveChart({required this.task});
+  final Task task;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SizedBox(
+        height: 118,
+        child: CustomPaint(
+          painter: _GrowthCurvePainter(
+            task: task,
+            current: c.accent,
+            next: c.accent.withValues(alpha: 0.28),
+            grid: c.lineSoft,
+          ),
+          child: const SizedBox.expand(),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Row(children: [
+        _dot(c.accent),
+        const SizedBox(width: 5),
+        Text('LV${task.level}',
+            style: WayFonts.mono(size: 9.5, color: c.inkSoft)),
+        const SizedBox(width: 14),
+        _dot(c.accent.withValues(alpha: 0.4)),
+        const SizedBox(width: 5),
+        Text('LV${task.level + 1}',
+            style: WayFonts.mono(size: 9.5, color: c.inkFaint)),
+        const Spacer(),
+        Text('0 → target',
+            style: WayFonts.mono(size: 9, color: c.inkFaint)),
+      ]),
+    ]);
+  }
+
+  Widget _dot(Color col) => Container(
+      width: 8, height: 8,
+      decoration: BoxDecoration(color: col, shape: BoxShape.circle));
+}
+
+class _GrowthCurvePainter extends CustomPainter {
+  _GrowthCurvePainter(
+      {required this.task,
+      required this.current,
+      required this.next,
+      required this.grid});
+  final Task task;
+  final Color current, next, grid;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const pad = 3.0, n = 48;
+    final w = size.width - pad * 2;
+    final h = size.height - pad * 2;
+    final cur = <double>[];
+    final nxt = <double>[];
+    for (var i = 0; i <= n; i++) {
+      final p = i / n;
+      cur.add(numberCurvePoint(task, p, task.level));
+      nxt.add(numberCurvePoint(task, p, task.level + 1));
+    }
+    final maxY = [...cur, ...nxt].reduce((a, b) => a > b ? a : b);
+    if (maxY <= 0) return;
+    Offset at(int i, List<double> v) =>
+        Offset(pad + (i / n) * w, pad + h - (v[i] / maxY) * h);
+
+    canvas.drawLine(Offset(pad, pad + h), Offset(pad + w, pad + h),
+        Paint()..color = grid..strokeWidth = 1);
+
+    Path pathOf(List<double> v) {
+      final path = Path()..moveTo(at(0, v).dx, at(0, v).dy);
+      for (var i = 1; i <= n; i++) {
+        path.lineTo(at(i, v).dx, at(i, v).dy);
+      }
+      return path;
+    }
+
+    canvas.drawPath(
+        pathOf(nxt),
+        Paint()
+          ..color = next
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round);
+    canvas.drawPath(
+        pathOf(cur),
+        Paint()
+          ..color = current
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4
+          ..strokeCap = StrokeCap.round);
+  }
+
+  @override
+  bool shouldRepaint(_GrowthCurvePainter old) =>
+      old.task.level != task.level || old.task.reward != task.reward;
 }

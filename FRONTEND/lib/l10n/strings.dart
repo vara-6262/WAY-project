@@ -529,6 +529,8 @@ class S {
       'You have 12h from creation or upgrade to fix the name and requirements.');
   String get criteriaLabel => _p('CRITERI', 'CRITERIA');
 
+  String get growthCurve => _p('CURVA DI CRESCITA', 'GROWTH CURVE');
+
   // --- date (nomi localizzati, gia' capitalizzati) ---
   List<String> get months => lang == AppLang.en
       ? const [
