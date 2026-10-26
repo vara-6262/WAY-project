@@ -10,7 +10,7 @@ import 'models.dart';
 /// e streak DERIVATO dal log. Non tocca percentOf/dayScore esistenti.
 // ---- Costanti number (tarabili) ----
 const double _numBase = 2.0;       // un number a target vale 2x una checklist
-const double _expPolar = 0.4;      // polarizzazione della curva number col livello
+const double _expPolar = 0.8;      // polarizzazione (3x): k = 1 + 1.2*livello
 // ---- Costanti astinenza ----
 const double _absFloor = 0.3;   // reward minimo di mantenimento
 const double _absPeak = 3.0;    // reward massimo al picco della campana
@@ -34,18 +34,12 @@ double _numberPoints(
     double v, double target, double mult, int level, RewardCurve curve) {
   if (target <= 0) return 0.0;
   final p = v / target;
-  final double base;
-  if (p >= 1) {
-    base = mult;
-  } else if (curve == RewardCurve.exponential) {
-    base = mult * math.pow(p, 1 + _expPolar * level).toDouble();
-  } else {
-    base = mult * p;
-  }
-  // Oltre il target: lineare pieno, senza cap ne' accelerazione.
-  // Sforare paga sempre, ma non da' nulla di speciale (streak/curva invariate).
-  final over = p > 1 ? (p - 1) : 0.0;
-  return _numBase * (base + mult * over);
+  // L'esponenziale resta esponenziale anche oltre il target (p^k per ogni p);
+  // il lineare resta lineare. Nessun raccordo/linearizzazione a target.
+  final factor = curve == RewardCurve.exponential
+      ? math.pow(p, 1 + _expPolar * level).toDouble()
+      : p;
+  return _numBase * mult * factor;
 }
 
 /// Campana dell'astinenza: cresce nella fase critica (picco a n=tau), poi cala.

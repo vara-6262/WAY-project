@@ -1,6 +1,5 @@
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:way/screens/wizard_scaffold.dart';
 
@@ -12,7 +11,6 @@ import '../models/app_data.dart';
 import '../models/models.dart';
 import '../screens/place_wizard.dart';
 import '../state/providers.dart';
-import '../theme/way_colors.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/domain_editor.dart';
@@ -771,15 +769,6 @@ Future<void> showPlaceDetailSheet(
 String _num(double v) =>
     v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
-String _fmtWhen(DateTime d) {
-  final today = Dates.today();
-  final day = DateTime(d.year, d.month, d.day);
-  final hm =
-      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-  if (day == today) return 'oggi $hm';
-  if (day == Dates.addDays(today, 1)) return 'domani $hm';
-  return '${d.day}/${d.month} $hm';
-}
 
 /// Profilo e controlli del prototipo.
 ///

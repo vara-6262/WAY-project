@@ -15,7 +15,6 @@ import '../fx/fx_controller.dart';
 import '../fx/reward.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
-import '../sheets/sheets.dart';
 import '../state/providers.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
@@ -739,7 +738,10 @@ class _ExecutionRow extends ConsumerWidget {
     final step = task.target >= 20 ? 5.0 : (task.target >= 8 ? 1.0 : 0.5);
     final evolve = evolveControl(context, ref, task, data);
     final measure = task.kind == TaskKind.measure;
-    final earned = measure ? data.taskPoints(task, day) : 0.0;
+    final earned = measure
+        ? data.pointsAtValue(task, value + step) -
+            data.pointsAtValue(task, value)
+        : 0.0;
     final expanded = ref.watch(expandedCardsProvider).contains(task.id);
     final up = expanded ? _upgradeLine(context, data, task) : null;
 
