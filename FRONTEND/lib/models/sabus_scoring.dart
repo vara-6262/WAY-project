@@ -10,7 +10,7 @@ import 'models.dart';
 /// e streak DERIVATO dal log. Non tocca percentOf/dayScore esistenti.
 // ---- Costanti number (tarabili) ----
 const double _numBase = 2.0;       // un number a target vale 2x una checklist
-const double _expPolar = 0.8;      // polarizzazione (3x): k = 1 + 1.2*livello
+const double _expPolar = 1.2;      // polarizzazione (3x): k = 1 + 1.2*livello
 // ---- Costanti astinenza ----
 const double _absFloor = 0.3;   // reward minimo di mantenimento
 const double _absPeak = 3.0;    // reward massimo al picco della campana
@@ -181,7 +181,7 @@ extension SabusScoring on AppData {
   bool reconfigReady(Task t) =>
       t.kind != TaskKind.abstinence && !t.archived && t.fail >= failThreshold;
   /// Task da mostrare in Home oggi: previste oggi, ma le settimanali gia'
-  /// completate questa settimana spariscono (restano attive per l'eco).
+  /// completate questa settimana spariscono dal pool disponibili.
   /// La task e' dentro la sua finestra oraria in questo momento?
   bool inWindowNow(Task t) {
     final now = DateTime.now();
@@ -280,7 +280,12 @@ extension SabusScoring on AppData {
 
   /// Streak reale: occorrenze consecutive "contate" dal log, da ieri all'indietro.
   int derivedStreak(Task t, {DateTime? asOf}) {
-    final ref = Dates.dayOf(asOf ?? DateTime.now());
+    var ref = Dates.dayOf(asOf ?? DateTime.now());
+    // Task dormiente (fuori scope): lo streak e' congelato al giorno di uscita.
+    if (t.dormantSince != null) {
+      final dd = Dates.dayOf(t.dormantSince!);
+      if (dd.isBefore(ref)) ref = dd;
+    }
     final floor = t.streakSince;
     if (isWeekly(t)) {
       var monday = Dates.mondayOf(ref); // settimana corrente

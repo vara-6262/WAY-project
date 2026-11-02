@@ -149,7 +149,7 @@ class _PlaceHub extends ConsumerWidget {
                           ),
                           const SizedBox(height: 7),
                           Text(
-                            'TRASCINA QUI UN AMBIENTE',
+                            context.s.dragHereEnv,
                             style: WayFonts.label(color: c.inkFaint, size: 9.5),
                           ),
                         ],
@@ -178,7 +178,7 @@ class _PlaceHub extends ConsumerWidget {
                           ),
                           const SizedBox(height: 7),
                           Text(
-                            'AMBIENTE ATTIVO',
+                            context.s.activeEnvCaps,
                             style: WayFonts.label(color: c.inkFaint, size: 9.5),
                           ),
                         ],

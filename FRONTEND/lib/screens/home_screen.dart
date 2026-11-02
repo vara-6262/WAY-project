@@ -15,6 +15,7 @@ import '../fx/fx_controller.dart';
 import '../fx/reward.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
+import '../sheets/sheets.dart';
 import '../state/providers.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
@@ -1029,7 +1030,7 @@ class _ScoreBar extends ConsumerWidget {
   }
 }
 
-/// Fulmine cliccabile usato per segnalare bonus (verde) ed eco (blu).
+/// Fulmine cliccabile usato per segnalare il bonus del giorno.
 class _FlashPill extends StatelessWidget {
   const _FlashPill(
       {required this.color, required this.tint, required this.onTap});

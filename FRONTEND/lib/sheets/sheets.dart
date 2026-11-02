@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:way/screens/wizard_scaffold.dart';
 
@@ -11,6 +12,7 @@ import '../models/app_data.dart';
 import '../models/models.dart';
 import '../screens/place_wizard.dart';
 import '../state/providers.dart';
+import '../theme/way_colors.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/domain_editor.dart';
@@ -506,6 +508,30 @@ Future<void> showTaskDetailSheet(
           ),
           const SizedBox(height: 8),
         ],
+        if (task.period == DomainPeriod.weekly) ...[
+          GhostButton(
+            label: context.s.convertToDaily,
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              ref.read(appProvider.notifier).convertToDaily(task);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (task.kind == TaskKind.complete) ...[
+          GhostButton(
+            label: context.s.convertToMaintenance,
+            onPressed: () {
+              if (task.criteria.isEmpty) {
+                showToast(context, context.s.needsCriteria);
+                return;
+              }
+              Navigator.of(ctx).pop();
+              _confirmConvertMaintenance(context, ref, task);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
         if (task.archived) ...[
           GhostButton(
             label: context.s.reactivateTask,
@@ -769,6 +795,15 @@ Future<void> showPlaceDetailSheet(
 String _num(double v) =>
     v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
+String _fmtWhen(DateTime d) {
+  final today = Dates.today();
+  final day = DateTime(d.year, d.month, d.day);
+  final hm =
+      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  if (day == today) return 'oggi $hm';
+  if (day == Dates.addDays(today, 1)) return 'domani $hm';
+  return '${d.day}/${d.month} $hm';
+}
 
 /// Profilo e controlli del prototipo.
 ///
@@ -1007,3 +1042,36 @@ class _GrowthCurvePainter extends CustomPainter {
   bool shouldRepaint(_GrowthCurvePainter old) =>
       old.task.level != task.level || old.task.reward != task.reward;
 }
+
+void _confirmConvertMaintenance(
+        BuildContext context, WidgetRef ref, Task task) =>
+    showAppSheet<void>(
+      context,
+      builder: (ctx) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SheetTitle(context.s.convertMaintTitle,
+              subtitle: context.s.convertMaintBody),
+          const SizedBox(height: 18),
+          Row(children: [
+            Expanded(
+              child: GhostButton(
+                label: context.s.cancel,
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: PrimaryButton(
+                label: context.s.convert,
+                onPressed: () {
+                  ref.read(appProvider.notifier).convertToMaintenance(task);
+                  Navigator.of(ctx).pop();
+                },
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );

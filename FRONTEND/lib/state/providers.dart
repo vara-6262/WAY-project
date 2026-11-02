@@ -105,18 +105,46 @@ class ModeController extends Notifier<PrototypeMode> {
 
 class AppController extends Notifier<AppData> {
   @override
-  AppData build() => _consolidate(ref.read(bootstrapProvider).data);
+  AppData build() =>
+      _reconcileDormancy(_consolidate(ref.read(bootstrapProvider).data));
 
   PrototypeMode get _mode => ref.read(modeProvider);
 
   Timer? _backupTimer;
 
   void _write(AppData next) {
-    state = next;
+    final reconciled = _reconcileDormancy(next);
+    state = reconciled;
     final prefs = ref.read(prefsProvider);
     // Salvataggio non atteso: la UI non deve mai fermarsi per una scrittura.
-    prefs.setString(storageKeyFor(_mode), jsonEncode(next.toJson()));
+    prefs.setString(storageKeyFor(_mode), jsonEncode(reconciled.toJson()));
     _scheduleAutoBackup();
+  }
+
+  /// Aggiorna dormantSince di ogni task in base allo scope: una task non in
+  /// core ne' in alcun ambiente diventa dormiente (streak congelato); se rientra
+  /// in scope torna attiva. Centralizzato qui -> copre OGNI cambio di scope.
+  AppData _reconcileDormancy(AppData d) {
+    final today = Dates.today();
+    final active = <String>{...d.coreIds};
+    for (final p in d.places) {
+      active.addAll(p.taskIds);
+    }
+    var changed = false;
+    final tasks = <Task>[];
+    for (final t in d.tasks) {
+      final inScope = active.contains(t.id);
+      if (inScope && t.dormantSince != null) {
+        tasks.add(t.copyWith(clearDormant: true));
+        changed = true;
+      } else if (!inScope && t.dormantSince == null) {
+        tasks.add(t.copyWith(dormantSince: today));
+        changed = true;
+      } else {
+        tasks.add(t);
+      }
+    }
+    return changed ? d.copyWith(tasks: tasks) : d;
   }
 
   /// Auto-backup su file esterno retrievable, debounced (coalescia i tap).
@@ -276,9 +304,6 @@ class AppController extends Notifier<AppData> {
 
   /// "Mantieni": azzera i contatori e lo streak (ferma la crescita del bonus)
   /// senza toccare livello o configurazione.
-  void keepTask(Task t) =>
-      updateTask(t.copyWith(succ: 0, fail: 0, streakSince: Dates.today()));
-
   /// Consolida: blocca gli upgrade per sempre; lo streak prosegue a oltranza
   /// (non azzera nulla). Resta comunque declassabile in caso di fallimenti.
   void consolidateTask(Task t) => updateTask(t.copyWith(locked: true));
@@ -327,6 +352,22 @@ class AppController extends Notifier<AppData> {
     }
     if (downgrade) r = r.copyWith(level: t.level > 0 ? t.level - 1 : 0);
     updateTask(r);
+  }
+
+  /// Settimanale -> giornaliera (il log resta valido, cambia la valutazione).
+  void convertToDaily(Task t) =>
+      updateTask(t.copyWith(period: DomainPeriod.daily));
+
+  /// Check -> mantenimento. Lo streak riparte (i valori del log si invertono
+  /// di significato tra i due tipi). Richiede almeno un criterio.
+  void convertToMaintenance(Task t) {
+    if (t.kind != TaskKind.complete || t.criteria.isEmpty) return;
+    updateTask(t.copyWith(
+      kind: TaskKind.maintenance,
+      succ: 0,
+      fail: 0,
+      streakSince: Dates.today(),
+    ));
   }
 
   void archiveTask(Task t) => updateTask(t.copyWith(archived: true));

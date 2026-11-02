@@ -70,6 +70,7 @@ class Task {
     this.streakSince,
     this.createdOn,
     this.editableUntil,
+    this.dormantSince,
     this.archived = false,
     this.locked = false,
     required this.level,
@@ -112,6 +113,10 @@ class Task {
   /// (finestra di 12h dopo creazione/upgrade).
   final DateTime? editableUntil;
 
+  /// Impostato quando la task esce dallo scope (core + ambienti): lo streak
+  /// si congela a questa data finche' non rientra in scope.
+  final DateTime? dormantSince;
+
   bool get editable =>
       editableUntil != null && DateTime.now().isBefore(editableUntil!);
 
@@ -152,6 +157,8 @@ class Task {
     DateTime? streakSince,
     DateTime? createdOn,
     DateTime? editableUntil,
+    DateTime? dormantSince,
+    bool clearDormant = false,
     bool? archived,
     bool? locked,
     int? level,
@@ -176,6 +183,8 @@ class Task {
       streakSince: streakSince ?? this.streakSince,
       createdOn: createdOn ?? this.createdOn,
       editableUntil: editableUntil ?? this.editableUntil,
+      dormantSince:
+          clearDormant ? null : (dormantSince ?? this.dormantSince),
       archived: archived ?? this.archived,
       locked: locked ?? this.locked,
       level: level ?? this.level,
@@ -203,6 +212,7 @@ class Task {
         'streakSince': streakSince?.toIso8601String(),
         'createdOn': createdOn?.toIso8601String(),
         'editableUntil': editableUntil?.toIso8601String(),
+        'dormantSince': dormantSince?.toIso8601String(),
         'archived': archived,
         'level': level,
         'streak': streak,
@@ -242,6 +252,9 @@ class Task {
             : null,
         editableUntil: j['editableUntil'] != null
             ? DateTime.parse(j['editableUntil'] as String)
+            : null,
+        dormantSince: j['dormantSince'] != null
+            ? DateTime.parse(j['dormantSince'] as String)
             : null,
         createdOn: j['createdOn'] != null
             ? DateTime.parse(j['createdOn'] as String)

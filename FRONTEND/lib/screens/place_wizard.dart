@@ -124,7 +124,7 @@ class _PlaceWizardState extends ConsumerState<PlaceWizard> {
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 15),
-        Text('SEGNO', style: WayFonts.label(color: context.c.inkFaint, size: 9.5)),
+        Text(context.s.signLabel, style: WayFonts.label(color: context.c.inkFaint, size: 9.5)),
         const SizedBox(height: 7),
         IconPicker(
           icons: placeGlyphs,

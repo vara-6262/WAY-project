@@ -229,27 +229,13 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                         },
                       ),
                       const SizedBox(height: 10),
-                      Row(children: [
-                        Expanded(
-                          child: GhostButton(
-                            label: context.s.keepAction,
-                            onPressed: () {
-                              ref.read(appProvider.notifier).keepTask(t);
-                              Navigator.of(context).maybePop();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: GhostButton(
-                            label: context.s.consolidate,
-                            onPressed: () {
-                              ref.read(appProvider.notifier).consolidateTask(t);
-                              Navigator.of(context).maybePop();
-                            },
-                          ),
-                        ),
-                      ]),
+                      GhostButton(
+                        label: context.s.consolidate,
+                        onPressed: () {
+                          ref.read(appProvider.notifier).consolidateTask(t);
+                          Navigator.of(context).maybePop();
+                        },
+                      ),
                     ])
                   : PrimaryButton(
                       label: context.s.confirm,

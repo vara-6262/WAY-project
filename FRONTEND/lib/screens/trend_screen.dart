@@ -42,7 +42,8 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
 
     // ---- streak in corso ----
     final streaks = <({Task task, int streak})>[];
-    for (final t in data.tasks) {
+    for (final t in data.tasksInScope()) {
+      if (t.archived) continue;
       final s = data.derivedStreak(t);
       if (s > 0) streaks.add((task: t, streak: s));
     }
@@ -50,7 +51,10 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
     final maxStreak = streaks.isEmpty ? 1 : (streaks.first.streak == 0 ? 1 : streaks.first.streak);
 
     // ---- forti / da curare ----
-    final scored = [for (final t in data.tasks) (task: t, s: data.taskStrength(t))];
+    final scored = [
+      for (final t in data.tasksInScope())
+        if (!t.archived) (task: t, s: data.taskStrength(t))
+    ];
     // Una task appena ripartita (upgrade/reconfig/mantieni recente) non e'
     // "da curare": e' normale che lo streak sia basso. Periodo di grazia 5g.
     bool justReset(Task t) {

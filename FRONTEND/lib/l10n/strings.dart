@@ -112,13 +112,6 @@ class S {
   String get maintenance => _p('Mantenimento', 'Maintenance');
   String get scoreComposition =>
       _p('COMPOSIZIONE PUNTEGGIO', 'SCORE BREAKDOWN');
-  String get ecoTitle => _p('Eco', 'Echo');
-  String get ecoBody => _p(
-      'Stai ricevendo punti da abitudini completate in precedenza che oggi '
-          'non sono in programma: il loro merito continua a contare per '
-          'qualche giorno.',
-      "You're getting points from habits completed earlier that aren't "
-          'scheduled today: their merit keeps counting for a few days.');
   String get bonusConstancyTitle => _p('Bonus costanza', 'Consistency bonus');
   String get bonusConstancyBody => _p(
       'Stai ricevendo un extra per la costanza delle tue abitudini '
@@ -354,7 +347,6 @@ class S {
   String get conditionHint => _p('condizione...', 'condition...');
   String get levelDown => _p('Scendi di livello (-1)', 'Level down (-1)');
   String get levelUpAction => _p('Sali di livello', 'Level up');
-  String get keepAction => _p('Mantieni', 'Keep');
   String get consolidate => _p('Consolida', 'Consolidate');
   String get reviewTitle => _p('Review a mente fredda', 'Cold-headed review');
   String get reviewExplain => _p(
@@ -535,6 +527,21 @@ class S {
   String get taskReactivated => _p('Task riabilitata', 'Task reactivated');
 
   String get whenLabel => _p('QUANDO', 'WHEN');
+
+  String get convertToDaily => _p('Converti in giornaliera', 'Convert to daily');
+  String get convertToMaintenance =>
+      _p('Converti in mantenimento', 'Convert to maintenance');
+  String get convertMaintTitle =>
+      _p('Convertire in mantenimento?', 'Convert to maintenance?');
+  String get convertMaintBody => _p(
+      'Diventerà "valida finché non la infrangi" e lo streak ripartirà da '
+          'zero. I criteri diventano le condizioni da mantenere.',
+      'It will become "valid until you break it" and the streak restarts from '
+          'zero. The criteria become the conditions to keep.');
+  String get convert => _p('Converti', 'Convert');
+  String get needsCriteria => _p(
+      'Aggiungi almeno un criterio prima di convertire.',
+      'Add at least one criterion before converting.');
 
   // --- date (nomi localizzati, gia' capitalizzati) ---
   List<String> get months => lang == AppLang.en
