@@ -103,6 +103,7 @@ class AppData {
     required this.range,
     required this.onboarding,
     this.ledger = const {},
+    this.ledgerPct = const {},
     this.reviewed = const {},
     this.lastLifecycleDay = '',
     this.hiddenDay = '',
@@ -127,6 +128,10 @@ class AppData {
   /// dataKey -> punti sigillati del giorno (consolidati / rivisti).
   final Map<String, double> ledger;
 
+  /// dataKey -> percentuale Sabus SIGILLATA del giorno (congelata, non si
+  /// ricalcola piu' col passare degli upgrade/bonus).
+  final Map<String, int> ledgerPct;
+
   /// dataKey dei giorni gia' rivisti (una review per giorno).
   final Set<String> reviewed;
 
@@ -148,6 +153,7 @@ class AppData {
     TrendRange? range,
     OnboardingState? onboarding,
     Map<String, double>? ledger,
+    Map<String, int>? ledgerPct,
     Set<String>? reviewed,
     String? lastLifecycleDay,
     String? hiddenDay,
@@ -164,6 +170,7 @@ class AppData {
       range: range ?? this.range,
       onboarding: onboarding ?? this.onboarding,
       ledger: ledger ?? this.ledger,
+      ledgerPct: ledgerPct ?? this.ledgerPct,
       reviewed: reviewed ?? this.reviewed,
       lastLifecycleDay: lastLifecycleDay ?? this.lastLifecycleDay,
       hiddenDay: hiddenDay ?? this.hiddenDay,
@@ -183,6 +190,7 @@ class AppData {
         'range': range.name,
         'onboarding': onboarding.toJson(),
         'ledger': ledger,
+        'ledgerPct': ledgerPct,
         'reviewed': reviewed.toList(),
         'lastLifecycleDay': lastLifecycleDay,
         'hiddenDay': hiddenDay,
@@ -221,6 +229,8 @@ class AppData {
           : OnboardingState.fromJson(j['onboarding'] as Map<String, dynamic>),
       ledger: (j['ledger'] as Map<String, dynamic>? ?? const {})
           .map((k, v) => MapEntry(k, (v as num).toDouble())),
+      ledgerPct: (j['ledgerPct'] as Map<String, dynamic>? ?? const {})
+          .map((k, v) => MapEntry(k, (v as num).toInt())),
       reviewed: ((j['reviewed'] as List<dynamic>? ?? const [])
           .map((e) => e as String)
           .toSet()),

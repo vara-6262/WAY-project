@@ -420,6 +420,9 @@ extension SabusScoring on AppData {
 
   /// Percentuale Sabus del giorno = punti*(1+bonus)/attesi*100 (può superare 100).
   int? dayPercentSabus(DateTime day) {
+    // Giorno sigillato: percentuale congelata, niente ricalcolo retroattivo.
+    final sealed = ledgerPct[Dates.key(day)];
+    if (sealed != null) return sealed;
     final exp = expectedPointsFor(day);
     if (exp <= 0) return null;
     final base = ledger[Dates.key(day)] ?? dayPoints(day);

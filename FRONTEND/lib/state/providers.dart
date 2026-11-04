@@ -203,10 +203,19 @@ class AppController extends Notifier<AppData> {
   AppData _consolidate(AppData d) {
     final todayKey = Dates.key(Dates.today());
     final ledger = Map<String, double>.from(d.ledger);
+    final ledgerPct = Map<String, int>.from(d.ledgerPct);
     for (final k in d.log.keys) {
       if (k.compareTo(todayKey) >= 0) continue;
-      if (d.reviewed.contains(k)) continue;
-      ledger[k] = _basePoints(d, k);
+      // Sigillo una volta sola: un giorno passato non si ricalcola piu'
+      // (ne' base ne' percentuale) -> niente drift retroattivo da upgrade/bonus.
+      if (ledger.containsKey(k) && ledgerPct.containsKey(k)) continue;
+      final day = Dates.parse(k);
+      final b = ledger[k] ?? _basePoints(d, k);
+      ledger[k] = b;
+      final exp = d.expectedPointsFor(day);
+      ledgerPct[k] = exp > 0
+          ? (b * (1 + d.dayBonusFraction(day)) / exp * 100).round()
+          : 0;
     }
     // Ciclo di vita: conta successi/fallimenti sui giorni chiusi (< ieri).
     final succ = {for (final t in d.tasks) t.id: t.succ};
@@ -261,7 +270,11 @@ class AppController extends Notifier<AppData> {
             ? t
             : t.copyWith(succ: succ[t.id], fail: fail[t.id]))
         .toList();
-    return d.copyWith(ledger: ledger, tasks: tasks, lastLifecycleDay: last);
+    return d.copyWith(
+        ledger: ledger,
+        ledgerPct: ledgerPct,
+        tasks: tasks,
+        lastLifecycleDay: last);
   }
 
   // ---- Ciclo di vita: azioni ----
@@ -426,16 +439,34 @@ class AppController extends Notifier<AppData> {
     finalLog[key] = finalDay;
 
     final ledger = Map<String, double>.from(state.ledger)..[key] = sealedPts;
+    final ledgerPct = Map<String, int>.from(state.ledgerPct);
+    final expR = state.expectedPointsFor(y);
+    ledgerPct[key] = expR > 0
+        ? (sealedPts * (1 + state.dayBonusFraction(y)) / expR * 100).round()
+        : 0;
     final reviewed = {...state.reviewed, key};
-    _write(state.copyWith(log: finalLog, ledger: ledger, reviewed: reviewed));
+    _write(state.copyWith(
+        log: finalLog,
+        ledger: ledger,
+        ledgerPct: ledgerPct,
+        reviewed: reviewed));
   }
 
   /// Salta la review: sigilla ieri com'era (nessuna correzione).
   void skipReview() {
     final key = Dates.key(Dates.addDays(Dates.today(), -1));
-    final ledger = Map<String, double>.from(state.ledger)
-      ..[key] = _basePoints(state, key);
-    _write(state.copyWith(ledger: ledger, reviewed: {...state.reviewed, key}));
+    final b = _basePoints(state, key);
+    final day = Dates.parse(key);
+    final ledger = Map<String, double>.from(state.ledger)..[key] = b;
+    final ledgerPct = Map<String, int>.from(state.ledgerPct);
+    final exp = state.expectedPointsFor(day);
+    ledgerPct[key] = exp > 0
+        ? (b * (1 + state.dayBonusFraction(day)) / exp * 100).round()
+        : 0;
+    _write(state.copyWith(
+        ledger: ledger,
+        ledgerPct: ledgerPct,
+        reviewed: {...state.reviewed, key}));
   }
 
   // --- Task -----------------------------------------------------------------

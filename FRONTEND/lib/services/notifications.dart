@@ -25,6 +25,7 @@ class NotificationService {
       channelDescription: 'Disponibilità e scadenze delle task',
       importance: Importance.high,
       priority: Priority.high,
+      icon: 'ic_stat_image',
     ),
   );
 
@@ -35,7 +36,7 @@ class NotificationService {
     } catch (_) {
       tz.setLocalLocation(tz.getLocation('UTC'));
     }
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('@drawable/ic_stat_image');
     await _plugin.initialize(const InitializationSettings(android: android));
     final a = _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
