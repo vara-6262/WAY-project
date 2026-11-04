@@ -39,7 +39,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     super.initState();
     final prefs = ref.read(prefsProvider);
     _debug = prefs.getBool(_kDebugKey) ?? false;
-    _name = prefs.getString(_kNameKey) ?? 'Manuel';
+    _name = prefs.getString(_kNameKey) ?? '';
   }
 
   void _onVersionTap() {

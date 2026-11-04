@@ -108,6 +108,9 @@ class HomeScreen extends ConsumerWidget {
     final place = data.activePlace;
     final hour = DateTime.now().hour;
     final greeting = context.s.greeting(hour);
+    // Nome profilo (stessa chiave di account_screen). Vuoto -> saluto generico.
+    final name =
+        ref.read(prefsProvider).getString('way.profile.name')?.trim() ?? '';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
@@ -120,13 +123,14 @@ class HomeScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$greeting,',
+                    name.isEmpty ? greeting : '$greeting,',
                     style: WayFonts.display(size: 24, color: c.ink),
                   ),
-                  Text(
-                    'Manuel',
-                    style: WayFonts.display(size: 24, color: c.accent),
-                  ),
+                  if (name.isNotEmpty)
+                    Text(
+                      name,
+                      style: WayFonts.display(size: 24, color: c.accent),
+                    ),
                   const SizedBox(height: 4),
                   Text(
                     context.s.whatToStart,
