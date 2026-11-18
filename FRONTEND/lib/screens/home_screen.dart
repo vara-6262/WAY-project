@@ -15,7 +15,6 @@ import '../fx/fx_controller.dart';
 import '../fx/reward.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
-import '../sheets/sheets.dart';
 import '../state/providers.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
