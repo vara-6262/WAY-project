@@ -32,9 +32,12 @@ class Bootstrap {
   final AppData data;
 
   static Bootstrap load(SharedPreferences prefs) {
-    final mode = prefs.getString(modeKey) == 'zero'
-        ? PrototypeMode.zero
-        : PrototypeMode.proxy;
+    // Default 'zero' (app vuota + tutorial) per le NUOVE installazioni.
+    // 'proxy' (dati demo) solo se esplicitamente salvato: e' un residuo del
+    // prototipo, un utente reale parte da zero e viene guidato dall'onboarding.
+    final mode = prefs.getString(modeKey) == 'proxy'
+        ? PrototypeMode.proxy
+        : PrototypeMode.zero;
     return Bootstrap(mode: mode, data: readData(prefs, mode));
   }
 
@@ -236,6 +239,13 @@ class AppController extends Notifier<AppData> {
     for (var i = 0; i < 500 && cursor.isBefore(yesterday); i++) {
       final day = cursor;
       final k = Dates.key(day);
+      // Giorno assente = freeze: niente succ/fail (ne' inflazione mantenimenti
+      // ne' fallimenti da assenza). Si salta, resta neutro.
+      if (!d.wasPresent(day)) {
+        last = k;
+        cursor = Dates.addDays(cursor, 1);
+        continue;
+      }
       for (final t in d.tasks) {
         if (t.kind == TaskKind.abstinence || t.archived) continue;
         if (!d.existsOn(t, day)) continue; // non esisteva ancora
@@ -252,7 +262,7 @@ class AppController extends Notifier<AppData> {
             succ[t.id] = 0;
           }
         } else {
-          if (!t.activeOn(day)) continue;
+          if (!d.appliesOn(t, day)) continue;
           if (d.taskCounts(t, day)) {
             succ[t.id] = (succ[t.id] ?? 0) + 1;
             fail[t.id] = 0;
@@ -295,8 +305,10 @@ class AppController extends Notifier<AppData> {
     double? target,
     bool toNumber = false,
   }) {
+    final nextLevel = t.level + 1;
     var up = t.copyWith(
-      level: t.level + 1,
+      level: nextLevel,
+      peakLevel: nextLevel > t.peakLevel ? nextLevel : t.peakLevel,
       succ: 0,
       fail: 0,
       streakSince: Dates.today(),
@@ -546,11 +558,37 @@ class AppController extends Notifier<AppData> {
   // --- Esecuzione giornaliera ----------------------------------------------
 
   void setValue(Task task, double value, {DateTime? day}) {
-    final key = Dates.key(day ?? DateTime.now());
+    final when = day ?? DateTime.now();
+    final key = Dates.key(when);
+    final v = value < 0 ? 0.0 : value;
     final log = {for (final e in state.log.entries) e.key: {...e.value}};
     final entry = log.putIfAbsent(key, () => <String, double>{});
-    entry[task.id] = value < 0 ? 0 : value;
-    _write(state.copyWith(log: log));
+    entry[task.id] = v;
+
+    // Timestamp di completamento (apertura finestra per le codipendenti).
+    // Solo complete/measure fanno da trigger; registro il minuto solo per OGGI.
+    var doneAt = state.doneAt;
+    if (task.kind == TaskKind.complete || task.kind == TaskKind.measure) {
+      final done =
+          task.kind == TaskKind.complete ? v > 0 : v >= task.target;
+      final isToday = key == Dates.key(Dates.today());
+      final map = {
+        for (final e in state.doneAt.entries) e.key: {...e.value}
+      };
+      final dayMap = map.putIfAbsent(key, () => <String, int>{});
+      if (done) {
+        // Non sovrascrivo un'apertura gia' registrata oggi (la finestra parte
+        // dal PRIMO completamento); per i giorni passati uso 0 come segnaposto.
+        dayMap[task.id] ??= isToday
+            ? DateTime.now().hour * 60 + DateTime.now().minute
+            : 0;
+      } else {
+        dayMap.remove(task.id);
+        if (dayMap.isEmpty) map.remove(key);
+      }
+      doneAt = map;
+    }
+    _write(state.copyWith(log: log, doneAt: doneAt));
   }
 
   /// Mantenimento: accende/spegne il bit della condizione i (0 = intatta).
@@ -580,12 +618,26 @@ class AppController extends Notifier<AppData> {
 
   // --- Livelli e vista ------------------------------------------------------
 
-  void acceptLevelUp(Task task) =>
-      updateTask(task.copyWith(level: task.level + 1, streak: 0));
+  void acceptLevelUp(Task task) {
+    final next = task.level + 1;
+    updateTask(task.copyWith(
+      level: next,
+      peakLevel: next > task.peakLevel ? next : task.peakLevel,
+      streak: 0,
+    ));
+  }
 
   void dismissLevelUp(Task task) => _write(
         state.copyWith(dismissedLevelUps: [...state.dismissedLevelUps, task.id]),
       );
+
+  /// Conferma la presenza di oggi senza spuntare task (per chi ha solo
+  /// mantenimenti): segna il giorno come presente cosi' lo scoring lo valuta.
+  void confirmToday() {
+    final k = Dates.key(Dates.today());
+    if (state.presentDays.contains(k)) return;
+    _write(state.copyWith(presentDays: {...state.presentDays, k}));
+  }
 
   void setRange(TrendRange range) => _write(state.copyWith(range: range));
 
@@ -596,6 +648,10 @@ class AppController extends Notifier<AppData> {
 
   void finishOnboarding() =>
       _write(state.copyWith(onboarding: OnboardingState.finished));
+
+  /// Debug: rigioca il tutorial da capo (richiede modalita' zero per comparire).
+  void restartOnboarding() =>
+      _write(state.copyWith(onboarding: OnboardingState.start));
 
   void markEducation({bool? criteria, bool? complete, bool? measure}) => _write(
         state.copyWith(

@@ -13,6 +13,8 @@ import 'wizard_scaffold.dart';
 
 /// Creazione della task in quattro passi: riconoscimento, durata, criteri,
 /// tipologia. Ogni passo ha una sola domanda.
+enum _Stage { identity, kind, duration, criteria }
+
 class TaskWizard extends ConsumerStatefulWidget {
   const TaskWizard({super.key});
 
@@ -39,6 +41,19 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
   DomainPeriod _period = DomainPeriod.daily;
   int _tau = 14;
 
+  // Codipendenza (solo per Completa/Numero): timeframe dinamico legato a un
+  // trigger invece di giorni+orario fissi.
+  bool _codependent = false;
+  String? _triggerId;
+  int _windowMinutes = 120;
+
+  bool get _canCodep =>
+      _kind == TaskKind.complete || _kind == TaskKind.measure;
+  bool get _isCodep => _codependent && _canCodep;
+
+  String _winLabel(int m) =>
+      m < 60 ? context.s.winMinutes(m) : context.s.winHours(m ~/ 60);
+
   @override
   void dispose() {
     _name.dispose();
@@ -46,31 +61,50 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
     super.dispose();
   }
 
-  bool get _stepValid => switch (_step) {
-        0 => _name.text.trim().isNotEmpty,
-        1 => _days.isNotEmpty,
+  // Ordine: identita' -> tipo -> timeframe -> criteri. Il timeframe e' saltato
+  // per l'astinenza (non e' mai ammessa, orario e giorno non contano).
+  List<_Stage> get _stages => [
+        _Stage.identity,
+        _Stage.kind,
+        if (_kind != TaskKind.abstinence) _Stage.duration,
+        _Stage.criteria,
+      ];
+
+  _Stage get _stage => _stages[_step.clamp(0, _stages.length - 1)];
+
+  bool get _stepValid => switch (_stage) {
+        _Stage.identity => _name.text.trim().isNotEmpty,
+        _Stage.duration => _isCodep ? _triggerId != null : _days.isNotEmpty,
         _ => true,
       };
 
   void _next() {
-    if (_step < 3) {
+    if (_step < _stages.length - 1) {
       setState(() => _step++);
       return;
     }
+    final isAbst = _kind == TaskKind.abstinence;
+    final codep = _isCodep && _triggerId != null;
     final task = Task(
       id: newId(),
       name: _name.text.trim(),
       iconKey: _iconKey,
       description: '',
-      days: (_days.toList()..sort()),
+      // Astinenza: ogni giorno. Codipendenza: vale ogni giorno, e' la finestra
+      // del trigger a decidere quando (giorni+orario fissi irrilevanti).
+      days: (isAbst || codep)
+          ? const [0, 1, 2, 3, 4, 5, 6]
+          : (_days.toList()..sort()),
       criteria: List.of(_criteria),
       kind: _kind,
       reward: _reward,
       target: _target,
-      start: _start,
-      end: _end,
-      period: _period,
+      start: isAbst ? 0 : _start,
+      end: isAbst ? 23 : _end,
+      period: (isAbst || codep) ? DomainPeriod.daily : _period,
       tau: _tau,
+      triggerId: codep ? _triggerId : null,
+      windowMinutes: _windowMinutes,
       level: 0,
       streak: 0,
     );
@@ -81,32 +115,35 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
 
   @override
   Widget build(BuildContext context) {
-    final titles = [
-      context.s.wizStepRecognition,
-      context.s.wizStepDuration,
-      context.s.wizStepCriteria,
-      context.s.wizStepType,
-    ];
-    final subtitles = [
-      context.s.wizSubRecognition,
-      context.s.wizSubDuration,
-      context.s.wizSubCriteria,
-      context.s.wizSubType,
-    ];
+    final stages = _stages;
+    final stage = stages[_step.clamp(0, stages.length - 1)];
+    final titles = {
+      _Stage.identity: context.s.wizStepRecognition,
+      _Stage.kind: context.s.wizStepType,
+      _Stage.duration: context.s.wizStepDuration,
+      _Stage.criteria: context.s.wizStepCriteria,
+    };
+    final subtitles = {
+      _Stage.identity: context.s.wizSubRecognition,
+      _Stage.kind: context.s.wizSubType,
+      _Stage.duration: context.s.wizSubDuration,
+      _Stage.criteria: context.s.wizSubCriteria,
+    };
 
     return WizardScaffold(
       stepIndex: _step,
-      stepCount: 4,
-      title: titles[_step],
-      subtitle: subtitles[_step],
-      nextLabel: _step == 3 ? context.s.createTask : context.s.continueLabel,
+      stepCount: stages.length,
+      title: titles[stage]!,
+      subtitle: subtitles[stage]!,
+      nextLabel:
+          _step == stages.length - 1 ? context.s.createTask : context.s.continueLabel,
       onNext: _stepValid ? _next : null,
       onBack: _step > 0 ? () => setState(() => _step--) : null,
-      body: switch (_step) {
-        0 => _stepIdentity(),
-        1 => _stepDuration(),
-        2 => _stepCriteria(),
-        _ => _stepKind(),
+      body: switch (stage) {
+        _Stage.identity => _stepIdentity(),
+        _Stage.kind => _stepKind(),
+        _Stage.duration => _stepDuration(),
+        _Stage.criteria => _stepCriteria(),
       },
     );
   }
@@ -133,7 +170,7 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
     );
   }
 
-  Widget _stepDuration() {
+  Widget _fixedTimeframe() {
     return DomainEditor(
       days: _days,
       period: _period,
@@ -145,6 +182,105 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
       onPeriod: (p) => setState(() => _period = p),
       onStart: (h) => setState(() => _start = h),
       onEnd: (h) => setState(() => _end = h),
+    );
+  }
+
+  Widget _stepDuration() {
+    // Solo Completa/Numero possono essere codipendenti; le altre -> fisso.
+    if (!_canCodep) return _fixedTimeframe();
+
+    final triggers = ref
+        .watch(appProvider)
+        .tasks
+        .where((t) =>
+            t.kind == TaskKind.complete || t.kind == TaskKind.measure)
+        .toList();
+    final c = context.c;
+
+    Widget modeOption(bool codep) => _KindOption(
+          title: codep ? context.s.tfCodep : context.s.tfFixed,
+          caption: codep ? context.s.tfCodepSub : context.s.tfFixedSub,
+          selected: _codependent == codep,
+          onTap: (codep && triggers.isEmpty)
+              ? null
+              : () => setState(() {
+                    _codependent = codep;
+                    if (codep) _triggerId ??= triggers.first.id;
+                  }),
+        );
+
+    final trigName = triggers.isEmpty
+        ? ''
+        : triggers
+            .firstWhere((t) => t.id == _triggerId,
+                orElse: () => triggers.first)
+            .name;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        modeOption(false),
+        modeOption(true),
+        const SizedBox(height: 14),
+        if (!_codependent)
+          _fixedTimeframe()
+        else if (triggers.isEmpty)
+          ExplainBox(context.s.codepNoTriggers)
+        else ...[
+          Text(context.s.codepTrigger,
+              style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+          const SizedBox(height: 4),
+          Text(context.s.codepTriggerHint,
+              style: WayFonts.ui(color: c.inkFaint, size: 11)),
+          const SizedBox(height: 8),
+          for (final t in triggers)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _KindOption(
+                title: t.name,
+                caption: t.kind == TaskKind.measure
+                    ? context.s.kindMeasure
+                    : context.s.kindComplete,
+                selected: _triggerId == t.id,
+                onTap: () => setState(() => _triggerId = t.id),
+              ),
+            ),
+          const SizedBox(height: 6),
+          Text(context.s.codepWindow,
+              style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (final m in const [30, 60, 120, 240])
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _windowMinutes = m),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _windowMinutes == m
+                              ? c.accentTint
+                              : c.surface2,
+                          border: Border.all(
+                              color: _windowMinutes == m ? c.accent : c.line),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(_winLabel(m),
+                            style: WayFonts.mono(
+                                size: 10.5, color: c.inkSoft)),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ExplainBox(context.s.codepDesc(trigName, _winLabel(_windowMinutes))),
+        ],
+      ],
     );
   }
 
@@ -375,7 +511,7 @@ class _KindOption extends StatelessWidget {
   final String title;
   final String caption;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

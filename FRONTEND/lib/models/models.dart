@@ -75,6 +75,9 @@ class Task {
     this.locked = false,
     required this.level,
     required this.streak,
+    this.peakLevel = 0,
+    this.triggerId,
+    this.windowMinutes = 120,
   });
 
   final String id;
@@ -129,8 +132,21 @@ class Task {
   /// Le task nascono a livello 0 e salgono con la costanza.
   final int level;
 
+  /// Livello massimo mai raggiunto. Sotto il picco il recupero e' scontato
+  /// (impalcatura verso terreno gia' conquistato); al picco torna il rigore.
+  final int peakLevel;
+
   /// Esecuzioni consecutive riuscite.
   final int streak;
+
+  /// Codipendenza: id della task-trigger (check o number) da cui dipende il
+  /// timeframe. null = task indipendente con timeframe fisso (giorni + orario).
+  final String? triggerId;
+
+  /// Durata (minuti) della finestra che si apre al completamento del trigger.
+  final int windowMinutes;
+
+  bool get isCodependent => triggerId != null;
 
   Difficulty get difficulty => difficultyForLevel(level);
 
@@ -162,7 +178,11 @@ class Task {
     bool? archived,
     bool? locked,
     int? level,
+    int? peakLevel,
     int? streak,
+    String? triggerId,
+    bool clearTrigger = false,
+    int? windowMinutes,
   }) {
     return Task(
       id: id,
@@ -188,7 +208,10 @@ class Task {
       archived: archived ?? this.archived,
       locked: locked ?? this.locked,
       level: level ?? this.level,
+      peakLevel: peakLevel ?? this.peakLevel,
       streak: streak ?? this.streak,
+      triggerId: clearTrigger ? null : (triggerId ?? this.triggerId),
+      windowMinutes: windowMinutes ?? this.windowMinutes,
     );
   }
 
@@ -215,7 +238,10 @@ class Task {
         'dormantSince': dormantSince?.toIso8601String(),
         'archived': archived,
         'level': level,
+        'peakLevel': peakLevel,
         'streak': streak,
+        'triggerId': triggerId,
+        'windowMinutes': windowMinutes,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -262,7 +288,12 @@ class Task {
         archived: j['archived'] == true,
         locked: j['locked'] == true,
         level: (j['level'] as num?)?.toInt() ?? 0,
+        peakLevel: (j['peakLevel'] as num?)?.toInt() ??
+            (j['level'] as num?)?.toInt() ??
+            0,
         streak: (j['streak'] as num?)?.toInt() ?? 0,
+        triggerId: j['triggerId'] as String?,
+        windowMinutes: (j['windowMinutes'] as num?)?.toInt() ?? 120,
       );
 }
 

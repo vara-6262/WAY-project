@@ -15,6 +15,7 @@ import '../fx/fx_controller.dart';
 import '../fx/reward.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
+import '../sheets/sheets.dart';
 import '../state/providers.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
@@ -330,28 +331,35 @@ class _TodayCard extends StatelessWidget {
 
 /// Grafico "andamento" per il lato retro della card in alto, con selettore
 /// del timeframe (settimana/mese/anno).
-class _ChartGlance extends ConsumerWidget {
+class _ChartGlance extends ConsumerStatefulWidget {
   const _ChartGlance({required this.data});
 
   final AppData data;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ChartGlance> createState() => _ChartGlanceState();
+}
+
+class _ChartGlanceState extends ConsumerState<_ChartGlance> {
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.data;
     final c = context.c;
     final today = Dates.today();
     final values = <double?>[];
     final labels = <String>[];
+    double? dayVal(DateTime day) => data.dayScorePoints(day);
     switch (data.range) {
       case TrendRange.week:
         for (var i = 6; i >= 0; i--) {
           final day = Dates.addDays(today, -i);
-          values.add(data.dayPercentSabus(day)?.toDouble());
+          values.add(dayVal(day));
           labels.add(context.s.daysShort[Dates.weekdayIndex(day)]);
         }
       case TrendRange.month:
         for (var i = 29; i >= 0; i--) {
           final day = Dates.addDays(today, -i);
-          values.add(data.dayPercentSabus(day)?.toDouble());
+          values.add(dayVal(day));
           labels.add(i % 7 == 0 ? '${day.day}' : '');
         }
       case TrendRange.year:
@@ -363,7 +371,7 @@ class _ChartGlance extends ConsumerWidget {
           for (var d = 1; d <= days; d++) {
             final day = DateTime(month.year, month.month, d);
             if (day.isAfter(today)) break;
-            final pv = data.dayPercentSabus(day);
+            final pv = dayVal(day);
             if (pv != null) {
               sum += pv;
               n++;
@@ -404,9 +412,10 @@ class _ChartGlance extends ConsumerWidget {
             key: ValueKey(data.range),
             values: values,
             labels: labels,
-            guide: 100,
+            // Linea tratteggiata al 100% ATTUALE: i punti attesi di oggi.
+            guide: data.expectedPointsFor(today),
             height: 140,
-            format: (v) => '${v.round()}%',
+            format: (v) => v.round().toString(),
           ),
         ),
       ]),
@@ -749,6 +758,22 @@ class _ExecutionRow extends ConsumerWidget {
     final expanded = ref.watch(expandedCardsProvider).contains(task.id);
     final up = expanded ? _upgradeLine(context, data, task) : null;
 
+    // Codipendenza: la riga di stato spiega la finestra. Il blocco effettivo
+    // del controllo lo gestisce _lockedWrap tramite inWindowNow().
+    final win = data.windowNow(task);
+    final alreadyDone = measure ? value >= task.target : value > 0;
+    final gated = task.isCodependent && !win.open && !alreadyDone;
+    final trigName = task.isCodependent
+        ? (data.taskById(task.triggerId!)?.name ?? '')
+        : '';
+    String two(int n) => n.toString().padLeft(2, '0');
+    final codepStatus = !task.isCodependent || alreadyDone
+        ? null
+        : (win.open && win.closesAt != null
+            ? context.s.codepOpenUntil(
+                '${two((win.closesAt! ~/ 60) % 24)}:${two(win.closesAt! % 60)}')
+            : context.s.codepWaiting(trigName));
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _toggleExpanded(ref, task.id),
@@ -775,6 +800,22 @@ class _ExecutionRow extends ConsumerWidget {
                     dim: complete),
                 const SizedBox(height: 7),
                 _compressedLine(context, data, task, day),
+                if (codepStatus != null) ...[
+                  const SizedBox(height: 5),
+                  Row(children: [
+                    Icon(gated ? Icons.lock_clock : Icons.hourglass_bottom,
+                        size: 11, color: gated ? c.inkFaint : c.accent),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(codepStatus,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: WayFonts.mono(
+                              size: 9.5,
+                              color: gated ? c.inkFaint : c.accent)),
+                    ),
+                  ]),
+                ],
                 AnimatedSize(
                   duration: MediaQuery.of(context).disableAnimations
                       ? Duration.zero

@@ -11,6 +11,7 @@ import 'models.dart';
 // ---- Costanti number (tarabili) ----
 const double _numBase = 2.0;       // un number a target vale 2x una checklist
 const double _expPolar = 1.2;      // polarizzazione (3x): k = 1 + 1.2*livello
+const double _levelK = 0.7;        // pendenza del moltiplicatore di livello (m = 1 + _levelK*livello)
 // ---- Costanti astinenza ----
 const double _absFloor = 0.3;   // reward minimo di mantenimento
 const double _absPeak = 3.0;    // reward massimo al picco della campana
@@ -24,7 +25,7 @@ const double _absPeak = 3.0;    // reward massimo al picco della campana
 /// Punti di un number al progresso [p] (0..1) a un dato [level]. Usata per
 /// disegnare la curva di crescita nel dettaglio (si ferma a target, p<=1).
 double numberCurvePoint(Task t, double p, int level) {
-  final mult = 1 + 0.5 * level;
+  final mult = 1 + _levelK * level;
   final k = t.reward == RewardCurve.exponential ? 1 + _expPolar * level : 1.0;
   final pc = p < 0 ? 0.0 : (p > 1 ? 1.0 : p);
   return _numBase * mult * math.pow(pc, k).toDouble();
@@ -49,6 +50,16 @@ double _bell(int n, int tau, double mult) {
 }
 
 extension SabusScoring on AppData {
+  /// Giorno di PRESENZA: l'utente ha interagito (ha un log non vuoto, lo ha
+  /// rivisto, o ha confermato la presenza). I giorni assenti sono neutri.
+  bool wasPresent(DateTime day) {
+    final k = Dates.key(day);
+    if (presentDays.contains(k)) return true;
+    final l = log[k];
+    if (l != null && l.isNotEmpty) return true;
+    return reviewed.contains(k);
+  }
+
   static const double numK = 0.5;
 
   // Soglie del ciclo di vita
@@ -90,14 +101,14 @@ extension SabusScoring on AppData {
 
   /// Punti effettivi di una task in un giorno (solo l'occorrenza, niente eco).
   double taskDayEarned(Task t, DateTime day) {
-    if (!t.activeOn(day)) return 0;
+    if (!appliesOn(t, day)) return 0;
     if (isWeekly(t) && !taskCounts(t, day)) return 0;
     return taskPoints(t, day);
   }
 
   /// Punti attesi di una task in un giorno (denominatore della percentuale).
   double taskDayExpected(Task t, DateTime day) {
-    if (!t.activeOn(day)) return 0;
+    if (!appliesOn(t, day)) return 0;
     if (isWeekly(t) && !taskCounts(t, day)) return 0;
     return expectedAtTarget(t);
   }
@@ -116,7 +127,7 @@ extension SabusScoring on AppData {
     var overN = 0;
     for (var i = 0; i < 400 && scheduled < window; i++) {
       if (floor != null && day.isBefore(Dates.dayOf(floor))) break;
-      if (t.activeOn(day)) {
+      if (appliesOn(t, day)) {
         scheduled++;
         if (taskCounts(t, day)) {
           counted++;
@@ -148,6 +159,10 @@ extension SabusScoring on AppData {
   /// scontata da consistenza (regolarita' recente) e overshoot (cappato).
   /// I due sconti hanno un tetto naturale: niente pavimento esplicito.
   int upgradeThreshold(Task t) {
+    // Recovery post-downgrade: sotto il picco la soglia e' fissa (impalcatura).
+    // Simmetria col downgrade (3 mancanze giu' / 3 successi su). Niente sconti
+    // consistenza/overshoot qui: stai riconquistando terreno gia' provato.
+    if (t.level < t.peakLevel) return upgradeFloor;
     final base = upgradeBase(t);
     if (t.kind == TaskKind.abstinence || t.period == DomainPeriod.weekly) {
       return base; // astinenza non usa succ; settimanale ha gia' soglia bassa
@@ -184,6 +199,8 @@ extension SabusScoring on AppData {
   /// completate questa settimana spariscono dal pool disponibili.
   /// La task e' dentro la sua finestra oraria in questo momento?
   bool inWindowNow(Task t) {
+    // Codipendenza: la finestra non e' l'orario fisso ma quella del trigger.
+    if (t.triggerId != null) return windowNow(t).open;
     final now = DateTime.now();
     final nowM = now.hour * 60 + now.minute;
     return nowM >= t.start * 60 && nowM < t.end * 60;
@@ -237,12 +254,42 @@ extension SabusScoring on AppData {
       !t.archived &&
       derivedStreak(t) >= (absEndK * t.tau).round();
 
-  double sabusMult(Task t) => 1 + 0.5 * t.level; // livello 0 = base
+  double sabusMult(Task t) => 1 + _levelK * t.level; // livello 0 = base
 
   /// La task esiste in [day]? Prima di createdOn non conta e non da' punti.
   bool existsOn(Task t, DateTime day) =>
       t.createdOn == null ||
       !Dates.dayOf(day).isBefore(Dates.dayOf(t.createdOn!));
+
+  /// La task "si applica" (entra nel punteggio) in [day]?
+  /// - Indipendente: nei suoi giorni (activeOn).
+  /// - Codipendente (gate): solo nei giorni in cui il TRIGGER e' stato
+  ///   completato, cioe' la finestra si e' aperta. Negli altri giorni e'
+  ///   neutra: fuori da numeratore e denominatore, non spezza lo streak.
+  bool appliesOn(Task t, DateTime day) {
+    if (!t.activeOn(day)) return false;
+    final trig = t.triggerId;
+    if (trig == null) return true;
+    final tt = taskById(trig);
+    if (tt == null) return true; // trigger cancellato: non bloccare la task
+    return existsOn(tt, day) && taskCounts(tt, day);
+  }
+
+  /// Stato della finestra di codipendenza ADESSO (solo per oggi, uso live UI).
+  /// Non codipendente -> sempre aperta. Trigger non ancora fatto oggi -> chiusa.
+  /// Fatto -> aperta per windowMinutes dal minuto di completamento.
+  ({bool open, int? closesAt}) windowNow(Task t) {
+    final trig = t.triggerId;
+    if (trig == null) return (open: true, closesAt: null);
+    final tt = taskById(trig);
+    if (tt == null) return (open: true, closesAt: null);
+    final m = doneMinute(trig, Dates.today());
+    if (m == null) return (open: false, closesAt: null);
+    final close = m + t.windowMinutes;
+    final now = DateTime.now();
+    final nowMin = now.hour * 60 + now.minute;
+    return (open: nowMin <= close, closesAt: close);
+  }
 
   /// Il giorno "conta" (streak): complete = fatto; measure = raggiunta la soglia.
   bool taskCounts(Task t, DateTime day) {
@@ -311,7 +358,14 @@ extension SabusScoring on AppData {
     var streak = 0;
     for (var i = 0; i < 400; i++) {
       if (floor != null && day.isBefore(Dates.dayOf(floor))) break;
-      if (t.activeOn(day)) {
+      // Giorno assente = freeze: neutro, non conta e non spezza (anche oggi:
+      // lo streak resta fermo a ieri finche' non interagisci). La grazia
+      // "oggi in sospeso" sotto vale per un giorno PRESENTE non ancora chiuso.
+      if (!wasPresent(day)) {
+        day = Dates.addDays(day, -1);
+        continue;
+      }
+      if (appliesOn(t, day)) {
         if (taskCounts(t, day)) {
           streak++;
         } else {
@@ -419,10 +473,23 @@ extension SabusScoring on AppData {
   }
 
   /// Percentuale Sabus del giorno = punti*(1+bonus)/attesi*100 (può superare 100).
+  /// Punti grezzi (base sigillata) del giorno, per il grafico in modalita'
+  /// "punti": congelati nei giorni passati, live oggi. Crescono con gli upgrade
+  /// (m = 1 + 0.5*livello), a differenza della percentuale normalizzata.
+  double? dayScorePoints(DateTime day) {
+    if (expectedPointsFor(day) <= 0) return null;
+    final key = Dates.key(day);
+    if (key != Dates.key(Dates.today()) && !wasPresent(day)) return null;
+    return ledger[key] ?? dayPoints(day);
+  }
+
   int? dayPercentSabus(DateTime day) {
     // Giorno sigillato: percentuale congelata, niente ricalcolo retroattivo.
-    final sealed = ledgerPct[Dates.key(day)];
+    final key = Dates.key(day);
+    final sealed = ledgerPct[key];
     if (sealed != null) return sealed;
+    // Giorno passato senza presenza: nessun dato (buco nel grafico), non 0%.
+    if (key != Dates.key(Dates.today()) && !wasPresent(day)) return null;
     final exp = expectedPointsFor(day);
     if (exp <= 0) return null;
     final base = ledger[Dates.key(day)] ?? dayPoints(day);

@@ -108,6 +108,8 @@ class AppData {
     this.lastLifecycleDay = '',
     this.hiddenDay = '',
     this.hidden = const [],
+    this.presentDays = const {},
+    this.doneAt = const {},
   });
 
   final List<Task> tasks;
@@ -142,6 +144,16 @@ class AppData {
   final String hiddenDay;
   final List<String> hidden;
 
+  /// dataKey dei giorni in cui l'utente era PRESENTE (ha interagito).
+  /// I giorni assenti sono neutri: lo scoring li congela (freeze), cosi'
+  /// l'app non genera dati non reali mentre l'utente non la usa.
+  final Set<String> presentDays;
+
+  /// dataKey -> (taskId -> minuto del giorno in cui la task e' stata completata).
+  /// Serve alla codipendenza: da quando si e' aperta la finestra del trigger.
+  /// Registrato solo per complete/measure (le uniche che fanno da trigger).
+  final Map<String, Map<String, int>> doneAt;
+
   AppData copyWith({
     List<Task>? tasks,
     List<String>? coreIds,
@@ -158,6 +170,8 @@ class AppData {
     String? lastLifecycleDay,
     String? hiddenDay,
     List<String>? hidden,
+    Set<String>? presentDays,
+    Map<String, Map<String, int>>? doneAt,
   }) {
     return AppData(
       tasks: tasks ?? this.tasks,
@@ -175,6 +189,8 @@ class AppData {
       lastLifecycleDay: lastLifecycleDay ?? this.lastLifecycleDay,
       hiddenDay: hiddenDay ?? this.hiddenDay,
       hidden: hidden ?? this.hidden,
+      presentDays: presentDays ?? this.presentDays,
+      doneAt: doneAt ?? this.doneAt,
     );
   }
 
@@ -195,6 +211,10 @@ class AppData {
         'lastLifecycleDay': lastLifecycleDay,
         'hiddenDay': hiddenDay,
         'hidden': hidden,
+        'presentDays': presentDays.toList(),
+        'doneAt': doneAt.map(
+          (day, m) => MapEntry(day, m.map((k, v) => MapEntry(k, v))),
+        ),
       };
 
   factory AppData.fromJson(Map<String, dynamic> j) {
@@ -239,6 +259,16 @@ class AppData {
       hidden: ((j['hidden'] as List<dynamic>? ?? const [])
           .map((e) => e as String)
           .toList()),
+      presentDays: ((j['presentDays'] as List<dynamic>? ?? const [])
+          .map((e) => e as String)
+          .toSet()),
+      doneAt: (j['doneAt'] as Map<String, dynamic>? ?? const {}).map(
+        (day, m) => MapEntry(
+          day,
+          (m as Map<String, dynamic>)
+              .map((k, v) => MapEntry(k, (v as num).toInt())),
+        ),
+      ),
     );
   }
 }
@@ -291,6 +321,9 @@ extension AppStats on AppData {
       .toList(growable: false);
 
   double valueOf(Task task, DateTime day) => log[Dates.key(day)]?[task.id] ?? 0;
+
+  /// Minuto del giorno in cui [taskId] e' stata completata in [day], se c'e'.
+  int? doneMinute(String taskId, DateTime day) => doneAt[Dates.key(day)]?[taskId];
 
   /// Percentuale della singola task in un giorno. Puo' superare 100.
   int percentOf(Task task, DateTime day) {

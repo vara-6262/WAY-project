@@ -251,6 +251,32 @@ class S {
   String get phaseMedium => _p('Media', 'Medium');
   String get phaseLong => _p('Lunga', 'Long');
 
+  // --- codipendenza ---
+  String get tfFixed => _p('Timeframe fisso', 'Fixed timeframe');
+  String get tfFixedSub =>
+      _p('Giorni e orario stabiliti', 'Set days and hours');
+  String get tfCodep => _p('Codipendenza', 'Codependency');
+  String get tfCodepSub => _p(
+      'Si sblocca al completamento di un\'altra task',
+      'Unlocks when another task is done');
+  String get codepTrigger => _p('TASK TRIGGER', 'TRIGGER TASK');
+  String get codepTriggerHint => _p(
+      'Quale completamento apre la finestra?',
+      'Which completion opens the window?');
+  String get codepWindow => _p('FINESTRA', 'WINDOW');
+  String get codepNoTriggers => _p(
+      'Serve almeno una task Completa o Numero gia\' esistente da usare come trigger.',
+      'You need at least one existing Complete or Number task to use as a trigger.');
+  String codepDesc(String trigger, String window) => _p(
+      'Dopo aver completato "$trigger" hai $window per completare questa task. Fuori dalla finestra non vale, e nei giorni senza "$trigger" la task e\' neutra.',
+      'After you complete "$trigger" you have $window to complete this task. Outside the window it doesn\'t count, and on days without "$trigger" the task is neutral.');
+  String winMinutes(int m) => _p('$m min', '$m min');
+  String winHours(int h) => _p('${h}h', '${h}h');
+  String codepWaiting(String trigger) =>
+      _p('In attesa di $trigger', 'Waiting for $trigger');
+  String codepOpenUntil(String time) =>
+      _p('Finestra aperta · chiude $time', 'Window open · closes $time');
+
   // --- first run (onboarding guidato) ---
   String get frTitleName => _p('Come si chiama?', "What's it called?");
   String frTitleDays(String name) =>
@@ -528,6 +554,9 @@ class S {
 
   String get whenLabel => _p('QUANDO', 'WHEN');
 
+  String get points => _p('Punti', 'Points');
+  String get restartTutorial =>
+      _p('Riavvia tutorial', 'Restart tutorial');
   String get convertToDaily => _p('Converti in giornaliera', 'Convert to daily');
   String get convertToMaintenance =>
       _p('Converti in mantenimento', 'Convert to maintenance');

@@ -1,4 +1,4 @@
-package com.example.way
+package com.vara.tracker
 
 import io.flutter.embedding.android.FlutterActivity
 
