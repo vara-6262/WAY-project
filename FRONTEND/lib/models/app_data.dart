@@ -110,6 +110,7 @@ class AppData {
     this.hidden = const [],
     this.presentDays = const {},
     this.doneAt = const {},
+    this.pausedPackIds = const {},
   });
 
   final List<Task> tasks;
@@ -154,6 +155,10 @@ class AppData {
   /// Registrato solo per complete/measure (le uniche che fanno da trigger).
   final Map<String, Map<String, int>> doneAt;
 
+  /// Pack applicati ma SOSPESI (toggle off): le loro task restano salvate ma
+  /// escono dallo scope (lo streak si congela, come la dormienza).
+  final Set<String> pausedPackIds;
+
   AppData copyWith({
     List<Task>? tasks,
     List<String>? coreIds,
@@ -172,6 +177,7 @@ class AppData {
     List<String>? hidden,
     Set<String>? presentDays,
     Map<String, Map<String, int>>? doneAt,
+    Set<String>? pausedPackIds,
   }) {
     return AppData(
       tasks: tasks ?? this.tasks,
@@ -191,6 +197,7 @@ class AppData {
       hidden: hidden ?? this.hidden,
       presentDays: presentDays ?? this.presentDays,
       doneAt: doneAt ?? this.doneAt,
+      pausedPackIds: pausedPackIds ?? this.pausedPackIds,
     );
   }
 
@@ -215,6 +222,7 @@ class AppData {
         'doneAt': doneAt.map(
           (day, m) => MapEntry(day, m.map((k, v) => MapEntry(k, v))),
         ),
+        'pausedPackIds': pausedPackIds.toList(),
       };
 
   factory AppData.fromJson(Map<String, dynamic> j) {
@@ -269,6 +277,9 @@ class AppData {
               .map((k, v) => MapEntry(k, (v as num).toInt())),
         ),
       ),
+      pausedPackIds: ((j['pausedPackIds'] as List<dynamic>? ?? const [])
+          .map((e) => e as String)
+          .toSet()),
     );
   }
 }
@@ -313,8 +324,24 @@ extension AppStats on AppData {
         if (!ids.contains(id)) ids.add(id);
       }
     }
-    return ids.map(taskById).whereType<Task>().toList(growable: false);
+    final scoped = ids.map(taskById).whereType<Task>().toList();
+    // Le task dei pack applicati (non sospesi) stanno SEMPRE in scope, sopra
+    // l'ambiente attivo: un pack e' una routine che porti con te ovunque.
+    for (final t in tasks) {
+      if (t.packId != null && !pausedPackIds.contains(t.packId)) {
+        if (!scoped.any((x) => x.id == t.id)) scoped.add(t);
+      }
+    }
+    return List<Task>.unmodifiable(scoped);
   }
+
+  /// Id dei pack attualmente applicati (hanno almeno una task installata).
+  Set<String> get appliedPackIds =>
+      {for (final t in tasks) if (t.packId != null) t.packId!};
+
+  /// Le task installate da un dato pack.
+  List<Task> tasksOfPack(String packId) =>
+      tasks.where((t) => t.packId == packId).toList(growable: false);
 
   List<Task> tasksFor(DateTime day) => tasksInScope()
       .where((t) => !t.archived && t.activeOn(day))

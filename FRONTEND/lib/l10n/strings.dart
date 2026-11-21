@@ -276,6 +276,55 @@ class S {
       _p('In attesa di $trigger', 'Waiting for $trigger');
   String codepOpenUntil(String time) =>
       _p('Finestra aperta · chiude $time', 'Window open · closes $time');
+  String get codepUnlocked => _p('Sbloccata oggi', 'Unlocked today');
+  String get winNoLimit => _p('Nessun limite', 'No limit');
+  String get winNoLimitSub =>
+      _p('Fino a fine giornata', 'Until end of day');
+  String get winUntilEod =>
+      _p('fino a fine giornata', 'until end of day');
+
+  // --- pacchetti (habit pack) ---
+  String get packsSection => _p('Pacchetti', 'Packs');
+  String get packPreview => _p('Anteprima', 'Preview');
+  String get packContains => _p('COSA CONTIENE', 'WHAT IT CONTAINS');
+  String get packAdd => _p('Aggiungi il pacchetto', 'Add this pack');
+  String packAdded(String name) =>
+      _p('"$name" aggiunto', '"$name" added');
+  String get packPaused => _p('Sospeso', 'Paused');
+  String packTaskCount(int n) => _p(
+      '$n task${n == 1 ? '' : ''} nel pacchetto',
+      '$n task${n == 1 ? '' : 's'} in the pack');
+  String get packRemoveTitle => _p('Rimuovere il pacchetto?', 'Remove pack?');
+  String packRemoveBody(String name) => _p(
+      'Elimini "$name" e tutte le sue task. L\'operazione non si puo\' annullare.',
+      'This removes "$name" and all its tasks. This cannot be undone.');
+  String get packRemoveConfirm => _p('Rimuovi pacchetto', 'Remove pack');
+  String packRemoved(String name) =>
+      _p('"$name" rimosso', '"$name" removed');
+  String get packTaskLocked => _p(
+      'Task di un pacchetto: si gestisce da Places.',
+      'Pack task: managed from Places.');
+
+  // --- upgrade scriptato dei pack ---
+  String get packUpgradeKicker =>
+      _p('UPGRADE GUIDATO', 'GUIDED UPGRADE');
+  String get packWhatChanges => _p('COSA CAMBIA', 'WHAT CHANGES');
+  String get packNoChange =>
+      _p('Stesso impianto, un livello in piu\'.', 'Same setup, one level up.');
+  String get packUpgradeApply => _p('Applica upgrade', 'Apply upgrade');
+  String packToNumber(double target) => _p(
+      'Da "fatto/non fatto" a numero: target ${_n(target)}',
+      'From done/not-done to a number: target ${_n(target)}');
+  String packTargetChange(String from, String to) =>
+      _p('Target: $from → $to', 'Target: $from → $to');
+  String packWindowChange(String from, String to) =>
+      _p('Finestra: $from → $to', 'Window: $from → $to');
+  String packNewRequirements(String reqs) =>
+      _p('Nuovi requisiti: $reqs', 'New requirements: $reqs');
+  String packFrequencyChange(int from, int to) => _p(
+      'Frequenza: $from → $to giorni a settimana',
+      'Frequency: $from → $to days per week');
+  String _n(double v) => v % 1 == 0 ? v.toStringAsFixed(0) : '$v';
 
   // --- first run (onboarding guidato) ---
   String get frTitleName => _p('Come si chiama?', "What's it called?");

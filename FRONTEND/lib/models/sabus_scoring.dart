@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../data/dates.dart';
+import '../data/packs.dart';
 import 'app_data.dart';
 import 'models.dart';
 
@@ -188,13 +189,31 @@ extension SabusScoring on AppData {
     return r < 0 ? 0 : r;
   }
 
-  bool upgradeReady(Task t) =>
+  bool upgradeReady(Task t) {
+    if (t.kind == TaskKind.abstinence || t.archived || t.locked) return false;
+    // Task di pack: upgrade solo se c'e' un passo pre-scriptato per il livello.
+    if (t.isPackTask) {
+      final seed = packSeed(t.packId!, t.packSeedKey);
+      if (seed == null || t.level >= seed.upgrades.length) return false;
+    }
+    return derivedStreak(t) >= upgradeThreshold(t);
+  }
+
+  /// Il prossimo passo di upgrade pre-scriptato (null se non e' un pack o e'
+  /// a fine progressione).
+  PackUpgrade? packNextUpgrade(Task t) {
+    if (!t.isPackTask) return null;
+    final seed = packSeed(t.packId!, t.packSeedKey);
+    if (seed == null || t.level >= seed.upgrades.length) return null;
+    return seed.upgrades[t.level];
+  }
+
+  // Le task di pack non si riconfigurano liberamente (sono immutabili).
+  bool reconfigReady(Task t) =>
+      !t.isPackTask &&
       t.kind != TaskKind.abstinence &&
       !t.archived &&
-      !t.locked &&
-      derivedStreak(t) >= upgradeThreshold(t);
-  bool reconfigReady(Task t) =>
-      t.kind != TaskKind.abstinence && !t.archived && t.fail >= failThreshold;
+      t.fail >= failThreshold;
   /// Task da mostrare in Home oggi: previste oggi, ma le settimanali gia'
   /// completate questa settimana spariscono dal pool disponibili.
   /// La task e' dentro la sua finestra oraria in questo momento?
@@ -285,6 +304,8 @@ extension SabusScoring on AppData {
     if (tt == null) return (open: true, closesAt: null);
     final m = doneMinute(trig, Dates.today());
     if (m == null) return (open: false, closesAt: null);
+    // Nessun limite: aperta fino a fine giornata (nessuna scadenza mostrata).
+    if (t.windowMinutes <= 0) return (open: true, closesAt: null);
     final close = m + t.windowMinutes;
     final now = DateTime.now();
     final nowMin = now.hour * 60 + now.minute;

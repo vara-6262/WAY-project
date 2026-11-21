@@ -269,23 +269,22 @@ Future<void> showTaskContextSheet(
             showTaskDetailSheet(context, ref, task);
           },
         ),
-        SheetAction(
-          icon: inCore ? Icons.remove_circle_outline : Icons.auto_awesome,
-          label: inCore
-              ? context.s.removeFromCore
-              : context.s.addToCore,
-          onTap: () {
-            ref.read(appProvider.notifier).toggleCore(task.id);
-            Navigator.of(ctx).pop();
-            showToast(
-              context,
-              inCore
-                  ? '${task.name} fuori dal nucleo'
-                  : '${task.name} e\' nel nucleo',
-            );
-          },
-        ),
-        if (task.editable)
+        if (!task.isPackTask)
+          SheetAction(
+            icon: inCore ? Icons.remove_circle_outline : Icons.auto_awesome,
+            label: inCore ? context.s.removeFromCore : context.s.addToCore,
+            onTap: () {
+              ref.read(appProvider.notifier).toggleCore(task.id);
+              Navigator.of(ctx).pop();
+              showToast(
+                context,
+                inCore
+                    ? '${task.name} fuori dal nucleo'
+                    : '${task.name} e\' nel nucleo',
+              );
+            },
+          ),
+        if (task.editable && !task.isPackTask)
           SheetAction(
             icon: Icons.edit_outlined,
             label: context.s.editTask,
@@ -294,15 +293,22 @@ Future<void> showTaskContextSheet(
               showEditTaskSheet(context, ref, task);
             },
           ),
-        SheetAction(
-          icon: Icons.delete_outline,
-          label: context.s.deleteTask,
-          danger: true,
-          onTap: () {
-            Navigator.of(ctx).pop();
-            showDeleteTaskSheet(context, ref, task);
-          },
-        ),
+        if (!task.isPackTask)
+          SheetAction(
+            icon: Icons.delete_outline,
+            label: context.s.deleteTask,
+            danger: true,
+            onTap: () {
+              Navigator.of(ctx).pop();
+              showDeleteTaskSheet(context, ref, task);
+            },
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(context.s.packTaskLocked,
+                style: WayFonts.mono(size: 10.5, color: c.inkFaint)),
+          ),
       ],
     ),
   );

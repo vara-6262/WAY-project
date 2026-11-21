@@ -10,6 +10,7 @@ import '../models/sabus_scoring.dart';
 import 'account_screen.dart';
 import 'review_screen.dart';
 import 'task_evolution_screen.dart';
+import 'pack_upgrade_screen.dart';
 import '../fx/anchors.dart';
 import '../fx/fx_controller.dart';
 import '../fx/reward.dart';
@@ -769,10 +770,12 @@ class _ExecutionRow extends ConsumerWidget {
     String two(int n) => n.toString().padLeft(2, '0');
     final codepStatus = !task.isCodependent || alreadyDone
         ? null
-        : (win.open && win.closesAt != null
-            ? context.s.codepOpenUntil(
-                '${two((win.closesAt! ~/ 60) % 24)}:${two(win.closesAt! % 60)}')
-            : context.s.codepWaiting(trigName));
+        : (!win.open
+            ? context.s.codepWaiting(trigName)
+            : (win.closesAt != null
+                ? context.s.codepOpenUntil(
+                    '${two((win.closesAt! ~/ 60) % 24)}:${two(win.closesAt! % 60)}')
+                : context.s.codepUnlocked));
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -886,13 +889,15 @@ Widget? evolveControl(
     );
   }
   if (data.upgradeReady(task)) {
+    final scripted = task.isPackTask;
     return _EvolvePill(
       label: context.s.levelUp,
       icon: Icons.trending_up,
       color: c.accent,
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) =>
-              TaskEvolutionScreen(taskId: task.id, mode: 'upgrade'))),
+          builder: (_) => scripted
+              ? PackUpgradeScreen(taskId: task.id)
+              : TaskEvolutionScreen(taskId: task.id, mode: 'upgrade'))),
     );
   }
   return null;

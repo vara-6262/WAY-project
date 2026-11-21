@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/dates.dart';
 import '../l10n/strings.dart';
 import '../data/seed.dart';
+import '../data/packs.dart';
 import '../models/app_data.dart';
 import '../models/sabus_scoring.dart';
 import '../theme/way_colors.dart';
@@ -136,7 +137,8 @@ class AppController extends Notifier<AppData> {
     var changed = false;
     final tasks = <Task>[];
     for (final t in d.tasks) {
-      final inScope = active.contains(t.id);
+      final inScope = active.contains(t.id) ||
+          (t.packId != null && !d.pausedPackIds.contains(t.packId));
       if (inScope && t.dormantSince != null) {
         tasks.add(t.copyWith(clearDormant: true));
         changed = true;
@@ -554,6 +556,98 @@ class AppController extends Notifier<AppData> {
       _write(state.copyWith(activePlaceId: placeId));
 
   void clearActivePlace() => _write(state.copyWith(clearActivePlace: true));
+
+  // --- Pacchetti (sistemi di task pre-confezionati) -------------------------
+
+  /// Installa un pack: crea le task vere con id freschi, rimappa le
+  /// codipendenze interne (triggerKey -> nuovo id) e le marca con packId.
+  void applyPack(HabitPack pack) {
+    if (state.appliedPackIds.contains(pack.id)) return;
+    final lang = ref.read(localeProvider);
+    final today = Dates.today();
+    final editUntil = DateTime.now().add(const Duration(hours: 12));
+    final ids = {for (final s in pack.seeds) s.localKey: newId()};
+    final newTasks = <Task>[];
+    for (final s in pack.seeds) {
+      final isCodep = s.triggerKey != null;
+      newTasks.add(Task(
+        id: ids[s.localKey]!,
+        name: s.name(lang),
+        iconKey: s.iconKey,
+        description: '',
+        days: isCodep ? const [0, 1, 2, 3, 4, 5, 6] : s.days,
+        criteria: _mkCriteria([for (final c in s.criteria) c(lang)]),
+        kind: s.kind,
+        reward: s.reward,
+        target: s.target,
+        start: isCodep ? 0 : s.start,
+        end: isCodep ? 23 : s.end,
+        period: DomainPeriod.daily,
+        tau: 14,
+        triggerId: s.triggerKey != null ? ids[s.triggerKey!] : null,
+        windowMinutes: s.windowMinutes,
+        packId: pack.id,
+        packSeedKey: s.localKey,
+        level: 0,
+        streak: 0,
+        createdOn: today,
+        streakSince: today,
+        editableUntil: editUntil,
+      ));
+    }
+    _write(state.copyWith(
+      tasks: [...state.tasks, ...newTasks],
+      pausedPackIds:
+          state.pausedPackIds.where((id) => id != pack.id).toSet(),
+    ));
+  }
+
+  /// Rimuove interamente un pack (tutte le sue task).
+  void removePack(String packId) {
+    _write(state.copyWith(
+      tasks: state.tasks.where((t) => t.packId != packId).toList(),
+      pausedPackIds: state.pausedPackIds.where((id) => id != packId).toSet(),
+    ));
+  }
+
+  /// Sospende/riattiva un pack senza perderne lo stato (toggle on/off).
+  void togglePackPaused(String packId) {
+    final paused = {...state.pausedPackIds};
+    if (!paused.remove(packId)) paused.add(packId);
+    _write(state.copyWith(pausedPackIds: paused));
+  }
+
+  /// Upgrade PRE-SCRIPTATO di una task di pack: applica il passo gia' deciso
+  /// per il livello attuale. Insegna come evolvere (frequenza/finestra/qualita').
+  void applyPackUpgrade(Task t) {
+    final seed = packSeed(t.packId ?? '', t.packSeedKey);
+    if (seed == null || t.level >= seed.upgrades.length) return;
+    final lang = ref.read(localeProvider);
+    final step = seed.upgrades[t.level];
+    final nextLevel = t.level + 1;
+    var up = t.copyWith(
+      level: nextLevel,
+      peakLevel: nextLevel > t.peakLevel ? nextLevel : t.peakLevel,
+      succ: 0,
+      fail: 0,
+      streakSince: Dates.today(),
+      editableUntil: DateTime.now().add(const Duration(hours: 12)),
+      criteria: step.requirements != null
+          ? _mkCriteria([for (final r in step.requirements!) r(lang)])
+          : t.criteria,
+      days: step.days ?? t.days,
+      start: step.start ?? t.start,
+      end: step.end ?? t.end,
+      period: step.period ?? t.period,
+      windowMinutes: step.windowMinutes ?? t.windowMinutes,
+    );
+    if (step.toNumber && t.kind == TaskKind.complete) {
+      up = up.copyWith(kind: TaskKind.measure, target: step.target ?? 1);
+    } else if (step.target != null) {
+      up = up.copyWith(target: step.target);
+    }
+    updateTask(up);
+  }
 
   // --- Esecuzione giornaliera ----------------------------------------------
 

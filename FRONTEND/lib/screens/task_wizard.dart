@@ -249,6 +249,13 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
           Text(context.s.codepWindow,
               style: WayFonts.label(color: c.inkFaint, size: 9.5)),
           const SizedBox(height: 8),
+          _KindOption(
+            title: context.s.winNoLimit,
+            caption: context.s.winNoLimitSub,
+            selected: _windowMinutes <= 0,
+            onTap: () => setState(() => _windowMinutes = 0),
+          ),
+          const SizedBox(height: 6),
           Row(
             children: [
               for (final m in const [30, 60, 120, 240])
@@ -278,7 +285,11 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
             ],
           ),
           const SizedBox(height: 12),
-          ExplainBox(context.s.codepDesc(trigName, _winLabel(_windowMinutes))),
+          ExplainBox(context.s.codepDesc(
+              trigName,
+              _windowMinutes <= 0
+                  ? context.s.winUntilEod
+                  : _winLabel(_windowMinutes))),
         ],
       ],
     );

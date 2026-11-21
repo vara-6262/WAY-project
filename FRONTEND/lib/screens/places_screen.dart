@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/packs.dart';
+
 import '../data/glyphs.dart';
 import '../l10n/strings.dart';
 import '../models/app_data.dart';
@@ -13,6 +15,7 @@ import '../state/providers.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
 import 'place_wizard.dart';
+import 'wizard_scaffold.dart';
 
 /// Places: un solo ambiente per volta puo' stare nell'hub, e quello decide
 /// il carico rispetto a cui vengono misurate le giornate.
@@ -92,6 +95,8 @@ class PlacesScreen extends ConsumerWidget {
                     load: data.loadOf(place),
                   ),
                 ),
+              const SizedBox(height: 24),
+              const _PacksSection(),
               const SizedBox(height: 14),
               Text(
                 context.s.hubNote,
@@ -394,4 +399,289 @@ class _PlaceCard extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// Sezione "Pacchetti" nella schermata Places: i pack applicati (con toggle di
+/// sospensione e rimozione) e quelli disponibili (anteprima + aggiungi). I pack
+/// sono sistemi di task che girano SOPRA l'ambiente attivo, e piu' pack possono
+/// convivere.
+class _PacksSection extends ConsumerWidget {
+  const _PacksSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(appProvider);
+    final lang = ref.watch(localeProvider);
+    final applied = data.appliedPackIds;
+    final available = habitPacks.where((p) => !applied.contains(p.id)).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionLabel(context.s.packsSection),
+        const SizedBox(height: 8),
+        if (applied.isEmpty && available.isEmpty)
+          const SizedBox.shrink(),
+        for (final id in applied)
+          if (habitPackById(id) != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _AppliedPackCard(
+                pack: habitPackById(id)!,
+                count: data.tasksOfPack(id).length,
+                paused: data.pausedPackIds.contains(id),
+              ),
+            ),
+        for (final pack in available)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _AvailablePackCard(pack: pack, lang: lang),
+          ),
+      ],
+    );
+  }
+}
+
+class _AppliedPackCard extends ConsumerWidget {
+  const _AppliedPackCard(
+      {required this.pack, required this.count, required this.paused});
+
+  final HabitPack pack;
+  final int count;
+  final bool paused;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    final lang = ref.watch(localeProvider);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: paused ? c.surface : c.surface2,
+        border: Border.all(color: paused ? c.line : c.accentSoft),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: c.surface2,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(placeGlyph(pack.iconKey), size: 20, color: c.accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(pack.name(lang),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: WayFonts.ui(
+                        size: 14, weight: FontWeight.w600, color: c.ink)),
+                const SizedBox(height: 3),
+                Text(
+                  paused
+                      ? context.s.packPaused
+                      : context.s.packTaskCount(count),
+                  style: WayFonts.mono(size: 10.5, color: c.inkFaint),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: !paused,
+            onChanged: (_) =>
+                ref.read(appProvider.notifier).togglePackPaused(pack.id),
+          ),
+          GestureDetector(
+            onTap: () => _confirmRemove(context, ref, pack),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Icon(Icons.delete_outline, size: 19, color: c.inkFaint),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmRemove(BuildContext context, WidgetRef ref, HabitPack pack) {
+    final lang = ref.read(localeProvider);
+    showAppSheet<void>(
+      context,
+      builder: (ctx) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(context.s.packRemoveTitle,
+              style: WayFonts.display(size: 18, color: ctx.c.ink)),
+          const SizedBox(height: 8),
+          Text(context.s.packRemoveBody(pack.name(lang)),
+              style: WayFonts.ui(size: 13, color: ctx.c.inkSoft)),
+          const SizedBox(height: 16),
+          PrimaryButton(
+            label: context.s.packRemoveConfirm,
+            color: ctx.c.hard,
+            onPressed: () {
+              ref.read(appProvider.notifier).removePack(pack.id);
+              Navigator.of(ctx).pop();
+              showToast(context, context.s.packRemoved(pack.name(lang)));
+            },
+          ),
+          const SizedBox(height: 8),
+          GhostButton(
+            label: context.s.cancel,
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvailablePackCard extends ConsumerWidget {
+  const _AvailablePackCard({required this.pack, required this.lang});
+
+  final HabitPack pack;
+  final AppLang lang;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.c;
+    return GestureDetector(
+      onTap: () => showPackPreview(context, ref, pack),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: c.surface,
+          border: Border.all(color: c.line),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: c.surface2,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(placeGlyph(pack.iconKey), size: 20, color: c.inkSoft),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(pack.name(lang),
+                      style: WayFonts.ui(
+                          size: 14, weight: FontWeight.w600, color: c.ink)),
+                  const SizedBox(height: 3),
+                  Text(context.s.packTaskCount(pack.seeds.length),
+                      style: WayFonts.mono(size: 10.5, color: c.inkFaint)),
+                ],
+              ),
+            ),
+            Pill(context.s.packPreview, fg: c.accent, bg: c.accentTint),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Anteprima di un pack: cosa contiene e come le task si sinergizzano, prima di
+/// aggiungerlo.
+void showPackPreview(BuildContext context, WidgetRef ref, HabitPack pack) {
+  final lang = ref.read(localeProvider);
+  showAppSheet<void>(
+    context,
+    builder: (ctx) {
+      final c = ctx.c;
+      String kindLabel(TaskKind k) => switch (k) {
+            TaskKind.complete => ctx.s.kindComplete,
+            TaskKind.measure => ctx.s.kindMeasure,
+            TaskKind.maintenance => ctx.s.kindMaintain,
+            TaskKind.abstinence => ctx.s.kindAbstinence,
+          };
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: c.surface2,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(placeGlyph(pack.iconKey), size: 20, color: c.accent),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(pack.name(lang),
+                  style: WayFonts.display(size: 18, color: c.ink)),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          ExplainBox(pack.description(lang)),
+          const SizedBox(height: 16),
+          Text(ctx.s.packContains,
+              style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+          const SizedBox(height: 8),
+          for (final seed in pack.seeds)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(taskIcon(seed.iconKey), size: 18, color: c.inkSoft),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Flexible(
+                            child: Text(seed.name(lang),
+                                style: WayFonts.ui(
+                                    size: 13.5,
+                                    weight: FontWeight.w700,
+                                    color: c.ink)),
+                          ),
+                          const SizedBox(width: 7),
+                          Pill(kindLabel(seed.kind),
+                              fg: c.inkSoft, bg: c.surface2),
+                        ]),
+                        const SizedBox(height: 2),
+                        Text(seed.role(lang),
+                            style: WayFonts.mono(size: 10, color: c.inkFaint)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 14),
+          PrimaryButton(
+            label: ctx.s.packAdd,
+            icon: Icons.add_rounded,
+            onPressed: () {
+              ref.read(appProvider.notifier).applyPack(pack);
+              Navigator.of(ctx).pop();
+              showToast(context, ctx.s.packAdded(pack.name(lang)));
+            },
+          ),
+        ],
+      );
+    },
+  );
 }

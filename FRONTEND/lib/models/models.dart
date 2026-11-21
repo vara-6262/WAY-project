@@ -78,6 +78,8 @@ class Task {
     this.peakLevel = 0,
     this.triggerId,
     this.windowMinutes = 120,
+    this.packId,
+    this.packSeedKey,
   });
 
   final String id;
@@ -148,6 +150,17 @@ class Task {
 
   bool get isCodependent => triggerId != null;
 
+  /// Codipendenza da un pack: id del pack applicato a cui questa task appartiene
+  /// (null = task normale creata dall'utente). Le task di un pack non sono
+  /// modificabili/eliminabili singolarmente e hanno upgrade pre-scriptati.
+  final String? packId;
+
+  /// Chiave del seed nel blueprint del pack: serve a ritrovare gli upgrade
+  /// pre-decisi di questa specifica task.
+  final String? packSeedKey;
+
+  bool get isPackTask => packId != null;
+
   Difficulty get difficulty => difficultyForLevel(level);
 
   /// Avanzamento verso il livello successivo: 28 esecuzioni costanti.
@@ -183,6 +196,8 @@ class Task {
     String? triggerId,
     bool clearTrigger = false,
     int? windowMinutes,
+    String? packId,
+    String? packSeedKey,
   }) {
     return Task(
       id: id,
@@ -212,6 +227,8 @@ class Task {
       streak: streak ?? this.streak,
       triggerId: clearTrigger ? null : (triggerId ?? this.triggerId),
       windowMinutes: windowMinutes ?? this.windowMinutes,
+      packId: packId ?? this.packId,
+      packSeedKey: packSeedKey ?? this.packSeedKey,
     );
   }
 
@@ -242,6 +259,8 @@ class Task {
         'streak': streak,
         'triggerId': triggerId,
         'windowMinutes': windowMinutes,
+        'packId': packId,
+        'packSeedKey': packSeedKey,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -294,6 +313,8 @@ class Task {
         streak: (j['streak'] as num?)?.toInt() ?? 0,
         triggerId: j['triggerId'] as String?,
         windowMinutes: (j['windowMinutes'] as num?)?.toInt() ?? 120,
+        packId: j['packId'] as String?,
+        packSeedKey: j['packSeedKey'] as String?,
       );
 }
 
