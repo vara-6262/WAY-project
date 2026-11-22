@@ -208,12 +208,42 @@ extension SabusScoring on AppData {
     return seed.upgrades[t.level];
   }
 
+  /// La finestra di OGGI e' gia' passata senza che la task sia stata completata?
+  /// Vale solo per complete/measure (gli altri tipi falliscono con regole loro).
+  /// Codipendente: passata solo se il trigger e' stato fatto e il tempo e'
+  /// scaduto. Timeframe fisso: ora oltre l'orario di fine.
+  bool windowPassedToday(Task t) {
+    if (t.kind != TaskKind.complete && t.kind != TaskKind.measure) return false;
+    final today = Dates.today();
+    if (!appliesOn(t, today)) return false;
+    if (taskCounts(t, today)) return false;
+    if (t.isCodependent) {
+      final w = windowNow(t);
+      return !w.open && doneMinute(t.triggerId!, today) != null;
+    }
+    final now = DateTime.now();
+    return now.hour * 60 + now.minute >= t.end * 60;
+  }
+
+  /// Fallimenti "live": lo storico piu' il fallimento di oggi se la finestra e'
+  /// gia' passata (su un giorno presente). Cosi' la riconfigurazione e' pronta
+  /// appena la task esce dalla finestra, non il giorno dopo.
+  int derivedFail(Task t) =>
+      t.fail +
+      (wasPresent(Dates.today()) && windowPassedToday(t) ? 1 : 0);
+
   // Le task di pack non si riconfigurano liberamente (sono immutabili).
   bool reconfigReady(Task t) =>
       !t.isPackTask &&
       t.kind != TaskKind.abstinence &&
       !t.archived &&
-      t.fail >= failThreshold;
+      derivedFail(t) >= failThreshold;
+
+  /// C'e' un'azione di evoluzione pendente (archivia/riconfigura/upgrade)?
+  /// Usata per NON bloccare la card quando esce dalla finestra: review e
+  /// upgrade restano eseguibili a prescindere dal timeframe.
+  bool evolvePending(Task t) =>
+      abstinenceConcluded(t) || reconfigReady(t) || upgradeReady(t);
   /// Task da mostrare in Home oggi: previste oggi, ma le settimanali gia'
   /// completate questa settimana spariscono dal pool disponibili.
   /// La task e' dentro la sua finestra oraria in questo momento?
@@ -394,7 +424,8 @@ extension SabusScoring on AppData {
           // (non ancora fatto). Per mantenimento/astinenza un oggi
           // compromesso e' un fallimento esplicito e spezza subito.
           final todayPending = i == 0 &&
-              (t.kind == TaskKind.complete || t.kind == TaskKind.measure);
+              (t.kind == TaskKind.complete || t.kind == TaskKind.measure) &&
+              !windowPassedToday(t);
           if (!todayPending) break;
         }
       }

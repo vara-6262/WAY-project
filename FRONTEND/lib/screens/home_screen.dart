@@ -36,7 +36,8 @@ class HomeScreen extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: _lockedWrap(
-        !data.inWindowNow(task),
+        // L'uscita dalla finestra blocca solo il check-in, non review/upgrade.
+        !data.evolvePending(task) && !data.inWindowNow(task),
         switch (task.kind) {
           TaskKind.maintenance => _MaintenanceRow(task: task, day: today),
           TaskKind.abstinence => _AbstinenceRow(task: task, day: today),
@@ -358,10 +359,22 @@ class _ChartGlanceState extends ConsumerState<_ChartGlance> {
           labels.add(context.s.daysShort[Dates.weekdayIndex(day)]);
         }
       case TrendRange.month:
-        for (var i = 29; i >= 0; i--) {
-          final day = Dates.addDays(today, -i);
-          values.add(dayVal(day));
-          labels.add(i % 7 == 0 ? '${day.day}' : '');
+        // Candele da 2 giorni: 30 giorni -> 15 punti. Meno rumore del
+        // giornaliero, piu' leggibile della media mensile.
+        for (var b = 14; b >= 0; b--) {
+          final d0 = Dates.addDays(today, -(b * 2));
+          final d1 = Dates.addDays(today, -(b * 2 + 1));
+          var sum = 0.0;
+          var nn = 0;
+          for (final d in [d0, d1]) {
+            final pv = dayVal(d);
+            if (pv != null) {
+              sum += pv;
+              nn++;
+            }
+          }
+          values.add(nn == 0 ? null : sum / nn);
+          labels.add(b % 3 == 0 ? '${d1.day}' : '');
         }
       case TrendRange.year:
         for (var m = 11; m >= 0; m--) {
@@ -413,8 +426,10 @@ class _ChartGlanceState extends ConsumerState<_ChartGlance> {
             key: ValueKey(data.range),
             values: values,
             labels: labels,
-            // Linea tratteggiata al 100% ATTUALE: i punti attesi di oggi.
+            // Linea tratteggiata al 100% ATTUALE: i punti attesi di oggi,
+            // etichettata cosi' il gap linea/fondo/livello e' leggibile.
             guide: data.expectedPointsFor(today),
+            guideLabel: '100%',
             height: 140,
             format: (v) => v.round().toString(),
           ),

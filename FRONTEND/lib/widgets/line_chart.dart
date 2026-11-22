@@ -12,6 +12,7 @@ class SmoothLineChart extends StatefulWidget {
     required this.labels,
     this.height = 140,
     this.guide,
+    this.guideLabel,
     this.format,
     this.color,
   });
@@ -20,6 +21,7 @@ class SmoothLineChart extends StatefulWidget {
   final List<String> labels;
   final double height;
   final double? guide; // linea tratteggiata di riferimento (es. 100 o il target)
+  final String? guideLabel; // etichetta sulla guida (es. "100%")
   final String Function(double v)? format;
   final Color? color;
 
@@ -44,8 +46,9 @@ class _SmoothLineChartState extends State<SmoothLineChart> {
     final nums = widget.values.whereType<double>().toList();
     final maxData = nums.isEmpty ? 1.0 : nums.reduce((a, b) => a > b ? a : b);
     final minData = nums.isEmpty ? 0.0 : nums.reduce((a, b) => a < b ? a : b);
-    // Asse Y normalizzato sul range dei dati, ma includendo sempre la guida
-    // (linea target / 100%) cosi' resta sempre visibile.
+    // Asse Y normalizzato sul minimo/massimo locale (mantiene la volatilita'),
+    // includendo sempre la guida cosi' resta visibile. La guida e' etichettata
+    // ("100%") per rendere leggibile il gap linea/fondo/livello attuale.
     final g = widget.guide;
     final lo = g != null ? (minData < g ? minData : g) : minData;
     final hi = g != null ? (maxData > g ? maxData : g) : maxData;
@@ -80,6 +83,7 @@ class _SmoothLineChartState extends State<SmoothLineChart> {
                     yMin: yMin,
                     yMax: yMax,
                     guide: widget.guide,
+                    guideLabel: widget.guideLabel,
                     sel: _sel,
                     fmt: fmt,
                     line: line,
@@ -118,6 +122,7 @@ class _LinePainter extends CustomPainter {
     required this.yMin,
     required this.yMax,
     required this.guide,
+    required this.guideLabel,
     required this.sel,
     required this.fmt,
     required this.line,
@@ -132,6 +137,7 @@ class _LinePainter extends CustomPainter {
   final double yMin;
   final double yMax;
   final double? guide;
+  final String? guideLabel;
   final int? sel;
   final String Function(double) fmt;
   final Color line, fill, grid, surface, ink, faint;
@@ -152,6 +158,24 @@ class _LinePainter extends CustomPainter {
       while (gx < size.width) {
         canvas.drawLine(Offset(gx, gy), Offset(gx + 3, gy), gp);
         gx += 6;
+      }
+      // Etichetta della linea di riferimento: rende interpretabile il gap.
+      if (guideLabel != null) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: guideLabel!,
+            style: TextStyle(
+                color: faint, fontSize: 8.5, fontWeight: FontWeight.w700),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        final lx = size.width - tp.width;
+        final ly = (gy - tp.height - 2).clamp(0.0, size.height - tp.height);
+        canvas.drawRect(
+          Rect.fromLTWH(lx - 3, ly - 1, tp.width + 4, tp.height + 2),
+          Paint()..color = surface,
+        );
+        tp.paint(canvas, Offset(lx, ly));
       }
     }
 
