@@ -264,6 +264,16 @@ class S {
       'Quale completamento apre la finestra?',
       'Which completion opens the window?');
   String get codepWindow => _p('FINESTRA', 'WINDOW');
+  String get codepDaysLabel => _p('GIORNI', 'DAYS');
+  String get codepDaysHint => _p(
+      'Solo nei giorni in cui e\' attivo il trigger.',
+      'Only on days when the trigger is active.');
+  String get triggerNeededByDependent => _p(
+      'Serve a una task codipendente in questo ambiente.',
+      'Needed by a codependent task in this environment.');
+  String triggerAutoAdded(String name) => _p(
+      'Aggiunto anche il trigger «$name»',
+      'Trigger "$name" added too');
   String get codepNoTriggers => _p(
       'Serve almeno una task Completa o Numero gia\' esistente da usare come trigger.',
       'You need at least one existing Complete or Number task to use as a trigger.');

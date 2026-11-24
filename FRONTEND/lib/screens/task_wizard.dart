@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/way_theme.dart';
 import '../widgets/common.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/dates.dart';
 import '../data/glyphs.dart';
 import '../models/models.dart';
 import '../sheets/sheets.dart';
@@ -51,6 +52,12 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
       _kind == TaskKind.complete || _kind == TaskKind.measure;
   bool get _isCodep => _codependent && _canCodep;
 
+  void _useTriggerDays(List<int> trigDays) {
+    _days
+      ..clear()
+      ..addAll(trigDays);
+  }
+
   String _winLabel(int m) =>
       m < 60 ? context.s.winMinutes(m) : context.s.winHours(m ~/ 60);
 
@@ -74,7 +81,8 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
 
   bool get _stepValid => switch (_stage) {
         _Stage.identity => _name.text.trim().isNotEmpty,
-        _Stage.duration => _isCodep ? _triggerId != null : _days.isNotEmpty,
+        _Stage.duration =>
+          _isCodep ? (_triggerId != null && _days.isNotEmpty) : _days.isNotEmpty,
         _ => true,
       };
 
@@ -92,15 +100,15 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
       description: '',
       // Astinenza: ogni giorno. Codipendenza: vale ogni giorno, e' la finestra
       // del trigger a decidere quando (giorni+orario fissi irrilevanti).
-      days: (isAbst || codep)
-          ? const [0, 1, 2, 3, 4, 5, 6]
-          : (_days.toList()..sort()),
+      // Astinenza: ogni giorno. Codipendenza: i giorni scelti (sottoinsieme di
+      // quelli del trigger); l'orario fisso e' irrilevante (decide la finestra).
+      days: isAbst ? const [0, 1, 2, 3, 4, 5, 6] : (_days.toList()..sort()),
       criteria: List.of(_criteria),
       kind: _kind,
       reward: _reward,
       target: _target,
-      start: isAbst ? 0 : _start,
-      end: isAbst ? 23 : _end,
+      start: (isAbst || codep) ? 0 : _start,
+      end: (isAbst || codep) ? 23 : _end,
       period: (isAbst || codep) ? DomainPeriod.daily : _period,
       tau: _tau,
       triggerId: codep ? _triggerId : null,
@@ -205,16 +213,21 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
               ? null
               : () => setState(() {
                     _codependent = codep;
-                    if (codep) _triggerId ??= triggers.first.id;
+                    if (codep) {
+                      _triggerId ??= triggers.first.id;
+                      final trig = triggers.firstWhere(
+                          (t) => t.id == _triggerId,
+                          orElse: () => triggers.first);
+                      _useTriggerDays(trig.days);
+                    }
                   }),
         );
 
-    final trigName = triggers.isEmpty
-        ? ''
-        : triggers
-            .firstWhere((t) => t.id == _triggerId,
-                orElse: () => triggers.first)
-            .name;
+    final trig = triggers.isEmpty
+        ? null
+        : triggers.firstWhere((t) => t.id == _triggerId,
+            orElse: () => triggers.first);
+    final trigName = trig?.name ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -242,7 +255,10 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
                     ? context.s.kindMeasure
                     : context.s.kindComplete,
                 selected: _triggerId == t.id,
-                onTap: () => setState(() => _triggerId = t.id),
+                onTap: () => setState(() {
+                  _triggerId = t.id;
+                  _useTriggerDays(t.days);
+                }),
               ),
             ),
           const SizedBox(height: 6),
@@ -280,6 +296,54 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
                                 size: 10.5, color: c.inkSoft)),
                       ),
                     ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(context.s.codepDaysLabel,
+              style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+          const SizedBox(height: 4),
+          Text(context.s.codepDaysHint,
+              style: WayFonts.ui(color: c.inkFaint, size: 11)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (var i = 0; i < 7; i++)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Builder(builder: (_) {
+                      final allowed = trig?.days.contains(i) ?? false;
+                      final on = allowed && _days.contains(i);
+                      return GestureDetector(
+                        onTap: allowed
+                            ? () => setState(() {
+                                  _days.contains(i)
+                                      ? _days.remove(i)
+                                      : _days.add(i);
+                                })
+                            : null,
+                        child: Opacity(
+                          opacity: allowed ? 1 : 0.35,
+                          child: Container(
+                            height: 42,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: on ? c.accent : c.surface2,
+                              border: Border.all(
+                                  color: on ? c.accent : c.line),
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            child: Text(Dates.dayShort[i],
+                                style: WayFonts.mono(
+                                    size: 12,
+                                    weight: FontWeight.w700,
+                                    color: on ? c.onSolid : c.inkSoft)),
+                          ),
+                        ),
+                      );
+                    }),
                   ),
                 ),
             ],

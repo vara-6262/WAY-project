@@ -207,13 +207,33 @@ class _PlaceWizardState extends ConsumerState<PlaceWizard> {
                   showToast(context, 'E\' nella core session: gia\' inclusa');
                   return;
                 }
-                setState(() {
-                  if (_taskIds.contains(task.id)) {
-                    _taskIds.remove(task.id);
-                  } else {
-                    _taskIds.add(task.id);
+                if (_taskIds.contains(task.id)) {
+                  // Rimozione: se e' il trigger di una codipendente gia'
+                  // inclusa, blocca (altrimenti la dipendente non si sblocca).
+                  final neededBy = data.tasks.any((x) =>
+                      x.triggerId == task.id && _taskIds.contains(x.id));
+                  if (neededBy) {
+                    showToast(context, context.s.triggerNeededByDependent);
+                    return;
                   }
-                });
+                  setState(() => _taskIds.remove(task.id));
+                } else {
+                  // Inserimento di una codipendente: trascina anche il trigger.
+                  final trig = task.triggerId;
+                  final pullTrigger = trig != null &&
+                      !_taskIds.contains(trig) &&
+                      !(_useCore && data.isCore(trig));
+                  setState(() {
+                    _taskIds.add(task.id);
+                    if (pullTrigger) _taskIds.add(trig);
+                  });
+                  if (pullTrigger) {
+                    showToast(
+                        context,
+                        context.s
+                            .triggerAutoAdded(data.taskById(trig)?.name ?? ''));
+                  }
+                }
               },
             ),
       ],
