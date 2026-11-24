@@ -315,6 +315,8 @@ class AppController extends Notifier<AppData> {
       fail: 0,
       streakSince: Dates.today(),
       editableUntil: DateTime.now().add(const Duration(hours: 12)),
+      // Impila lo stato PRE-upgrade: il level down lo ripristina.
+      levelHistory: [...t.levelHistory, _levelSnapshot(t)],
       criteria: _mkCriteria(requirements),
       days: days,
       start: start,
@@ -353,6 +355,60 @@ class AppController extends Notifier<AppData> {
         end: end,
         period: period,
       ));
+
+  // --- Storico livelli (per il level down) ----------------------------------
+
+  /// Fotografa la configurazione che definisce il livello attuale.
+  Map<String, dynamic> _levelSnapshot(Task t) => {
+        'criteria': t.criteria.map((c) => c.toJson()).toList(),
+        'kind': t.kind.name,
+        'target': t.target,
+        'days': t.days,
+        'start': t.start,
+        'end': t.end,
+        'period': t.period.name,
+        'windowMinutes': t.windowMinutes,
+      };
+
+  Task _restoreSnapshot(Task t, Map<String, dynamic> s) => t.copyWith(
+        criteria: (s['criteria'] as List)
+            .map((j) => Criterion.fromJson(Map<String, dynamic>.from(j as Map)))
+            .toList(),
+        kind: TaskKind.values.byName(s['kind'] as String),
+        target: (s['target'] as num).toDouble(),
+        days: (s['days'] as List).map((e) => e as int).toList(),
+        start: s['start'] as int,
+        end: s['end'] as int,
+        period: DomainPeriod.values.byName(s['period'] as String),
+        windowMinutes: (s['windowMinutes'] as num).toInt(),
+      );
+
+  /// Scende di un livello RIPRISTINANDO lo stato precedente dallo storico
+  /// (criteri, tipo, target, giorni, orario, periodo, finestra). Se non c'e'
+  /// storico (task vecchie), scala solo il livello.
+  void levelDown(Task t) {
+    if (t.level <= 0) return;
+    final hist = [...t.levelHistory];
+    if (hist.isEmpty) {
+      updateTask(t.copyWith(
+        level: t.level - 1,
+        succ: 0,
+        fail: 0,
+        streakSince: Dates.today(),
+      ));
+      return;
+    }
+    final snap = hist.removeLast();
+    final r = _restoreSnapshot(t, snap).copyWith(
+      level: t.level - 1,
+      succ: 0,
+      fail: 0,
+      streakSince: Dates.today(),
+      editableUntil: DateTime.now().add(const Duration(hours: 12)),
+      levelHistory: hist,
+    );
+    updateTask(r);
+  }
 
   void applyReconfig(
     Task t, {
@@ -632,6 +688,7 @@ class AppController extends Notifier<AppData> {
       fail: 0,
       streakSince: Dates.today(),
       editableUntil: DateTime.now().add(const Duration(hours: 12)),
+      levelHistory: [...t.levelHistory, _levelSnapshot(t)],
       criteria: step.requirements != null
           ? _mkCriteria([for (final r in step.requirements!) r(lang)])
           : t.criteria,

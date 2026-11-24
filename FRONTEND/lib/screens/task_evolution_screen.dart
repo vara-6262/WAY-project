@@ -192,6 +192,16 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                       value: _downgrade,
                       onChanged: (v) => setState(() => _downgrade = v),
                     ),
+                    if (_downgrade)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2, bottom: 4),
+                        child: Text(
+                          t.levelHistory.isEmpty
+                              ? context.s.levelDownNoHistory
+                              : context.s.levelDownRestoreNote,
+                          style: WayFonts.mono(size: 10.5, color: c.inkFaint),
+                        ),
+                      ),
                   ],
                 ],
               ),
@@ -238,18 +248,26 @@ class _TaskEvolutionScreenState extends ConsumerState<TaskEvolutionScreen> {
                       ),
                     ])
                   : PrimaryButton(
-                      label: context.s.confirm,
+                      label:
+                          _downgrade ? context.s.levelDownAction : context.s.confirm,
                       onPressed: () {
-                        ref.read(appProvider.notifier).applyReconfig(
-                              t,
-                              requirements: _reqTexts,
-                              days: _days.toList()..sort(),
-                              start: _start,
-                              end: _end,
-                              period: _period,
-                              target: t.kind == TaskKind.measure ? _targetVal : null,
-                              downgrade: _downgrade,
-                            );
+                        final notifier = ref.read(appProvider.notifier);
+                        if (_downgrade) {
+                          // Level down: ripristina lo stato del livello
+                          // precedente dallo storico (ignora i criteri digitati).
+                          notifier.levelDown(t);
+                        } else {
+                          notifier.applyReconfig(
+                            t,
+                            requirements: _reqTexts,
+                            days: _days.toList()..sort(),
+                            start: _start,
+                            end: _end,
+                            period: _period,
+                            target:
+                                t.kind == TaskKind.measure ? _targetVal : null,
+                          );
+                        }
                         Navigator.of(context).maybePop();
                       },
                     ),

@@ -80,6 +80,7 @@ class Task {
     this.windowMinutes = 120,
     this.packId,
     this.packSeedKey,
+    this.levelHistory = const [],
   });
 
   final String id;
@@ -161,6 +162,11 @@ class Task {
 
   bool get isPackTask => packId != null;
 
+  /// Storico degli stati dei livelli inferiori: a ogni upgrade viene impilato
+  /// uno snapshot della configurazione PRE-upgrade (criteri, tipo, target,
+  /// giorni, orario, periodo, finestra). Il level down lo ripristina.
+  final List<Map<String, dynamic>> levelHistory;
+
   Difficulty get difficulty => difficultyForLevel(level);
 
   /// Avanzamento verso il livello successivo: 28 esecuzioni costanti.
@@ -198,6 +204,7 @@ class Task {
     int? windowMinutes,
     String? packId,
     String? packSeedKey,
+    List<Map<String, dynamic>>? levelHistory,
   }) {
     return Task(
       id: id,
@@ -229,6 +236,7 @@ class Task {
       windowMinutes: windowMinutes ?? this.windowMinutes,
       packId: packId ?? this.packId,
       packSeedKey: packSeedKey ?? this.packSeedKey,
+      levelHistory: levelHistory ?? this.levelHistory,
     );
   }
 
@@ -261,6 +269,7 @@ class Task {
         'windowMinutes': windowMinutes,
         'packId': packId,
         'packSeedKey': packSeedKey,
+        'levelHistory': levelHistory,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -315,6 +324,9 @@ class Task {
         windowMinutes: (j['windowMinutes'] as num?)?.toInt() ?? 120,
         packId: j['packId'] as String?,
         packSeedKey: j['packSeedKey'] as String?,
+        levelHistory: (j['levelHistory'] as List<dynamic>? ?? const [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
       );
 }
 

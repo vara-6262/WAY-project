@@ -421,6 +421,13 @@ class S {
   String requirementN(int n) => _p('Requisito $n', 'Requirement $n');
   String get conditionHint => _p('condizione...', 'condition...');
   String get levelDown => _p('Scendi di livello (-1)', 'Level down (-1)');
+  String get levelDownAction => _p('Scendi di livello', 'Level down');
+  String get levelDownRestoreNote => _p(
+      'Verranno ripristinati criteri, tipo e timeframe del livello precedente.',
+      'Criteria, type and timeframe of the previous level will be restored.');
+  String get levelDownNoHistory => _p(
+      'Nessuno stato precedente salvato: verra\' solo abbassato il livello.',
+      'No previous state saved: only the level will be lowered.');
   String get levelUpAction => _p('Sali di livello', 'Level up');
   String get consolidate => _p('Consolida', 'Consolidate');
   String get reviewTitle => _p('Review a mente fredda', 'Cold-headed review');
