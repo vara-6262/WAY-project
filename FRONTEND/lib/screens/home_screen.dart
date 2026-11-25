@@ -780,7 +780,7 @@ class _ExecutionRow extends ConsumerWidget {
     final alreadyDone = measure ? value >= task.target : value > 0;
     final gated = task.isCodependent && !win.open && !alreadyDone;
     final trigName = task.isCodependent
-        ? (data.taskById(task.triggerId!)?.name ?? '')
+        ? (data.taskById(data.resolveTriggerId(task) ?? '')?.name ?? '')
         : '';
     String two(int n) => n.toString().padLeft(2, '0');
     final codepStatus = !task.isCodependent || alreadyDone

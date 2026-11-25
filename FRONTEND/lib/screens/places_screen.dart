@@ -677,11 +677,114 @@ void showPackPreview(BuildContext context, WidgetRef ref, HabitPack pack) {
             onPressed: () {
               ref.read(appProvider.notifier).applyPack(pack);
               Navigator.of(ctx).pop();
-              showToast(context, ctx.s.packAdded(pack.name(lang)));
+              final conflicts =
+                  ref.read(appProvider).anchorConflicts(pack.id);
+              if (conflicts.isNotEmpty) {
+                showPackConflicts(context, ref, pack.id);
+              } else {
+                showToast(context, context.s.packAdded(pack.name(lang)));
+              }
             },
           ),
         ],
       );
     },
+  );
+}
+
+
+/// Dialog di conflitto d'ancora: due o piu' task condividono lo stesso
+/// anchorKey. L'utente sceglie quale tenere PRIMARIA; le altre si sopprimono
+/// finche' il loro pack e' attivo.
+void showPackConflicts(BuildContext context, WidgetRef ref, String packId) {
+  final data = ref.read(appProvider);
+  final conflicts = data.anchorConflicts(packId);
+  if (conflicts.isEmpty) return;
+  final lang = ref.read(localeProvider);
+  final sel = <String, String>{
+    for (final e in conflicts.entries)
+      e.key: data.effectiveAnchorTaskId(e.key) ?? e.value.first.id,
+  };
+
+  showAppSheet<void>(
+    context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setLocal) {
+        final c = ctx.c;
+        Widget candidate(String anchorKey, Task t) {
+          final chosen = sel[anchorKey] == t.id;
+          final packName =
+              t.packId != null ? (habitPackById(t.packId!)?.name(lang) ?? '') : '';
+          return GestureDetector(
+            onTap: () => setLocal(() => sel[anchorKey] = t.id),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: chosen ? c.accentTint : c.surface2,
+                border: Border.all(color: chosen ? c.accent : c.line),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                      chosen
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      size: 18,
+                      color: chosen ? c.accent : c.inkFaint),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(t.name,
+                            style: WayFonts.ui(
+                                size: 13.5,
+                                weight: FontWeight.w700,
+                                color: c.ink)),
+                        if (packName.isNotEmpty)
+                          Text(packName,
+                              style:
+                                  WayFonts.mono(size: 10, color: c.inkFaint)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(ctx.s.anchorConflictTitle,
+                style: WayFonts.display(size: 18, color: c.ink)),
+            const SizedBox(height: 6),
+            Text(ctx.s.anchorConflictBody,
+                style: WayFonts.ui(size: 12.5, color: c.inkSoft)),
+            const SizedBox(height: 16),
+            for (final e in conflicts.entries) ...[
+              Text(e.value.first.name.toUpperCase(),
+                  style: WayFonts.label(color: c.inkFaint, size: 9.5)),
+              const SizedBox(height: 8),
+              for (final t in e.value) candidate(e.key, t),
+              const SizedBox(height: 8),
+            ],
+            PrimaryButton(
+              label: ctx.s.confirm,
+              onPressed: () {
+                final notifier = ref.read(appProvider.notifier);
+                sel.forEach(notifier.setAnchorPrimary);
+                Navigator.of(ctx).pop();
+              },
+            ),
+          ],
+        );
+      },
+    ),
   );
 }

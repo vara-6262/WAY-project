@@ -625,7 +625,7 @@ class AppController extends Notifier<AppData> {
     final ids = {for (final s in pack.seeds) s.localKey: newId()};
     final newTasks = <Task>[];
     for (final s in pack.seeds) {
-      final isCodep = s.triggerKey != null;
+      final isCodep = s.triggerAnchorKey != null;
       newTasks.add(Task(
         id: ids[s.localKey]!,
         name: s.name(lang),
@@ -640,7 +640,9 @@ class AppController extends Notifier<AppData> {
         end: isCodep ? 23 : s.end,
         period: DomainPeriod.daily,
         tau: 14,
-        triggerId: s.triggerKey != null ? ids[s.triggerKey!] : null,
+        // Codipendenza per ancora (dinamica, cross-pack): niente id fisso.
+        triggerAnchorKey: s.triggerAnchorKey,
+        anchorKey: s.anchorKey,
         windowMinutes: s.windowMinutes,
         packId: pack.id,
         packSeedKey: s.localKey,
@@ -660,9 +662,24 @@ class AppController extends Notifier<AppData> {
 
   /// Rimuove interamente un pack (tutte le sue task).
   void removePack(String packId) {
+    final remaining = state.tasks.where((t) => t.packId != packId).toList();
+    final remIds = remaining.map((t) => t.id).toSet();
+    final ap = {
+      for (final e in state.anchorPrimary.entries)
+        if (remIds.contains(e.value)) e.key: e.value
+    };
     _write(state.copyWith(
-      tasks: state.tasks.where((t) => t.packId != packId).toList(),
+      tasks: remaining,
       pausedPackIds: state.pausedPackIds.where((id) => id != packId).toSet(),
+      anchorPrimary: ap,
+    ));
+  }
+
+  /// Imposta quale task e' primaria per un'ancora (scelta dell'utente nel
+  /// dialog di conflitto). Le altre task con lo stesso anchorKey si sopprimono.
+  void setAnchorPrimary(String anchorKey, String taskId) {
+    _write(state.copyWith(
+      anchorPrimary: {...state.anchorPrimary, anchorKey: taskId},
     ));
   }
 

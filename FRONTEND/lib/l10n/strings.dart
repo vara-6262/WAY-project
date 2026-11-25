@@ -297,6 +297,11 @@ class S {
   String get packsSection => _p('Pacchetti', 'Packs');
   String get packPreview => _p('Anteprima', 'Preview');
   String get packContains => _p('COSA CONTIENE', 'WHAT IT CONTAINS');
+  String get anchorConflictTitle =>
+      _p('Task in comune', 'Shared task');
+  String get anchorConflictBody => _p(
+      'Piu\' pacchetti usano la stessa task. Scegli quale tenere attiva: le altre restano in pausa finche\' tieni entrambi i pacchetti.',
+      'More than one pack uses the same task. Pick which one stays active: the others stay paused while you keep both packs.');
   String get packAdd => _p('Aggiungi il pacchetto', 'Add this pack');
   String packAdded(String name) =>
       _p('"$name" aggiunto', '"$name" added');

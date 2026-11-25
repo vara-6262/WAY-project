@@ -218,8 +218,10 @@ extension SabusScoring on AppData {
     if (!appliesOn(t, today)) return false;
     if (taskCounts(t, today)) return false;
     if (t.isCodependent) {
+      final trig = resolveTriggerId(t);
+      if (trig == null) return false;
       final w = windowNow(t);
-      return !w.open && doneMinute(t.triggerId!, today) != null;
+      return !w.open && doneMinute(trig, today) != null;
     }
     final now = DateTime.now();
     return now.hour * 60 + now.minute >= t.end * 60;
@@ -249,7 +251,7 @@ extension SabusScoring on AppData {
   /// La task e' dentro la sua finestra oraria in questo momento?
   bool inWindowNow(Task t) {
     // Codipendenza: la finestra non e' l'orario fisso ma quella del trigger.
-    if (t.triggerId != null) return windowNow(t).open;
+    if (t.isCodependent) return windowNow(t).open;
     final now = DateTime.now();
     final nowM = now.hour * 60 + now.minute;
     return nowM >= t.start * 60 && nowM < t.end * 60;
@@ -317,7 +319,7 @@ extension SabusScoring on AppData {
   ///   neutra: fuori da numeratore e denominatore, non spezza lo streak.
   bool appliesOn(Task t, DateTime day) {
     if (!t.activeOn(day)) return false;
-    final trig = t.triggerId;
+    final trig = resolveTriggerId(t);
     if (trig == null) return true;
     final tt = taskById(trig);
     if (tt == null) return true; // trigger cancellato: non bloccare la task
@@ -328,7 +330,7 @@ extension SabusScoring on AppData {
   /// Non codipendente -> sempre aperta. Trigger non ancora fatto oggi -> chiusa.
   /// Fatto -> aperta per windowMinutes dal minuto di completamento.
   ({bool open, int? closesAt}) windowNow(Task t) {
-    final trig = t.triggerId;
+    final trig = resolveTriggerId(t);
     if (trig == null) return (open: true, closesAt: null);
     final tt = taskById(trig);
     if (tt == null) return (open: true, closesAt: null);

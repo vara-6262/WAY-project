@@ -111,6 +111,7 @@ class AppData {
     this.presentDays = const {},
     this.doneAt = const {},
     this.pausedPackIds = const {},
+    this.anchorPrimary = const {},
   });
 
   final List<Task> tasks;
@@ -159,6 +160,11 @@ class AppData {
   /// escono dallo scope (lo streak si congela, come la dormienza).
   final Set<String> pausedPackIds;
 
+  /// anchorKey -> id della task scelta come PRIMARIA per quell'ancora. Le altre
+  /// task live con lo stesso anchorKey vengono soppresse (fuori scope). Se la
+  /// primaria non e' piu' live, si ricade sulla prima disponibile.
+  final Map<String, String> anchorPrimary;
+
   AppData copyWith({
     List<Task>? tasks,
     List<String>? coreIds,
@@ -178,6 +184,7 @@ class AppData {
     Set<String>? presentDays,
     Map<String, Map<String, int>>? doneAt,
     Set<String>? pausedPackIds,
+    Map<String, String>? anchorPrimary,
   }) {
     return AppData(
       tasks: tasks ?? this.tasks,
@@ -198,6 +205,7 @@ class AppData {
       presentDays: presentDays ?? this.presentDays,
       doneAt: doneAt ?? this.doneAt,
       pausedPackIds: pausedPackIds ?? this.pausedPackIds,
+      anchorPrimary: anchorPrimary ?? this.anchorPrimary,
     );
   }
 
@@ -223,6 +231,7 @@ class AppData {
           (day, m) => MapEntry(day, m.map((k, v) => MapEntry(k, v))),
         ),
         'pausedPackIds': pausedPackIds.toList(),
+        'anchorPrimary': anchorPrimary,
       };
 
   factory AppData.fromJson(Map<String, dynamic> j) {
@@ -280,6 +289,8 @@ class AppData {
       pausedPackIds: ((j['pausedPackIds'] as List<dynamic>? ?? const [])
           .map((e) => e as String)
           .toSet()),
+      anchorPrimary: (j['anchorPrimary'] as Map<String, dynamic>? ?? const {})
+          .map((k, v) => MapEntry(k, v as String)),
     );
   }
 }
@@ -328,7 +339,9 @@ extension AppStats on AppData {
     // Le task dei pack applicati (non sospesi) stanno SEMPRE in scope, sopra
     // l'ambiente attivo: un pack e' una routine che porti con te ovunque.
     for (final t in tasks) {
-      if (t.packId != null && !pausedPackIds.contains(t.packId)) {
+      if (t.packId != null &&
+          !pausedPackIds.contains(t.packId) &&
+          !isAnchorSuppressed(t)) {
         if (!scoped.any((x) => x.id == t.id)) scoped.add(t);
       }
     }
@@ -342,6 +355,54 @@ extension AppStats on AppData {
   /// Le task installate da un dato pack.
   List<Task> tasksOfPack(String packId) =>
       tasks.where((t) => t.packId == packId).toList(growable: false);
+
+  // --- Ancore condivise -----------------------------------------------------
+
+  /// Le task "live" (non sospese) che portano un dato anchorKey.
+  List<Task> _liveAnchorTasks(String key) => tasks
+      .where((t) =>
+          t.anchorKey == key &&
+          (t.packId == null || !pausedPackIds.contains(t.packId)))
+      .toList();
+
+  /// La task PRIMARIA attiva per un anchorKey (scelta utente, o la prima
+  /// disponibile se la scelta non e' piu' live).
+  String? effectiveAnchorTaskId(String key) {
+    final live = _liveAnchorTasks(key);
+    if (live.isEmpty) return null;
+    final chosen = anchorPrimary[key];
+    if (chosen != null && live.any((t) => t.id == chosen)) return chosen;
+    return live.first.id;
+  }
+
+  /// Questa task e' una duplicata di ancora attualmente SOPPRESSA?
+  bool isAnchorSuppressed(Task t) {
+    final key = t.anchorKey;
+    if (key == null) return false;
+    final live = _liveAnchorTasks(key);
+    if (live.length <= 1) return false;
+    return effectiveAnchorTaskId(key) != t.id;
+  }
+
+  /// Risolve il trigger effettivo di una codipendente: per ancora (dinamico) o
+  /// fisso (triggerId). Null se non risolvibile.
+  String? resolveTriggerId(Task t) {
+    final key = t.triggerAnchorKey;
+    if (key != null) return effectiveAnchorTaskId(key);
+    return t.triggerId;
+  }
+
+  /// Conflitti d'ancora introdotti da un pack appena applicato: anchorKey ->
+  /// candidati (per il dialog di scelta della primaria).
+  Map<String, List<Task>> anchorConflicts(String packId) {
+    final out = <String, List<Task>>{};
+    for (final t
+        in tasks.where((x) => x.packId == packId && x.anchorKey != null)) {
+      final live = _liveAnchorTasks(t.anchorKey!);
+      if (live.length > 1) out[t.anchorKey!] = live;
+    }
+    return out;
+  }
 
   List<Task> tasksFor(DateTime day) => tasksInScope()
       .where((t) => !t.archived && t.activeOn(day))

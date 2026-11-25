@@ -53,13 +53,14 @@ class TaskSeed {
     this.end = 23,
     this.period = DomainPeriod.daily,
     this.criteria = const [],
-    this.triggerKey,
+    this.anchorKey,
+    this.triggerAnchorKey,
     this.windowMinutes = 120,
     this.upgrades = const [],
   });
 
-  /// Chiave locale al pack: referenziata da [triggerKey] di altri seed e salvata
-  /// su Task.packSeedKey per ritrovare gli upgrade.
+  /// Chiave locale al pack: genera l'id della task e viene salvata su
+  /// Task.packSeedKey per ritrovare gli upgrade pre-scriptati.
   final String localKey;
   final LT name;
   final String iconKey;
@@ -75,8 +76,13 @@ class TaskSeed {
   final DomainPeriod period;
   final List<LT> criteria;
 
-  /// localKey del seed-trigger nello stesso pack (codipendenza interna).
-  final String? triggerKey;
+  /// Identita' di ancora condivisa (es. 'wake'): rende questa task
+  /// referenziabile come trigger anche da altri pack e soggetta a priorita'.
+  final String? anchorKey;
+
+  /// Ancora da cui questa task dipende (codipendenza, anche cross-pack):
+  /// si sblocca quando la task PRIMARIA con questo anchorKey viene completata.
+  final String? triggerAnchorKey;
   final int windowMinutes;
   final List<PackUpgrade> upgrades;
 }
@@ -118,6 +124,7 @@ const List<HabitPack> habitPacks = [
     seeds: [
       TaskSeed(
         localKey: 'wake',
+        anchorKey: 'wake',
         name: LT('Sveglia', 'Wake up'),
         iconKey: 'alarm',
         kind: TaskKind.complete,
@@ -149,7 +156,7 @@ const List<HabitPack> habitPacks = [
         iconKey: 'drop',
         kind: TaskKind.measure,
         target: 2,
-        triggerKey: 'wake',
+        triggerAnchorKey: 'wake',
         windowMinutes: 60,
         role: LT(
           'Si sblocca con la sveglia: due bicchieri entro un\'ora.',
@@ -181,7 +188,7 @@ const List<HabitPack> habitPacks = [
         name: LT('Movimento', 'Movement'),
         iconKey: 'run',
         kind: TaskKind.complete,
-        triggerKey: 'wake',
+        triggerAnchorKey: 'wake',
         windowMinutes: 120,
         role: LT(
           'Si sblocca con la sveglia: due ore per muovere il corpo.',

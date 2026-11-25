@@ -81,6 +81,8 @@ class Task {
     this.packId,
     this.packSeedKey,
     this.levelHistory = const [],
+    this.anchorKey,
+    this.triggerAnchorKey,
   });
 
   final String id;
@@ -149,7 +151,17 @@ class Task {
   /// Durata (minuti) della finestra che si apre al completamento del trigger.
   final int windowMinutes;
 
-  bool get isCodependent => triggerId != null;
+  /// Identita' di ancora condivisa tra pack (es. 'wake', 'breakfast'): due task
+  /// con lo stesso anchorKey sono "la stessa ancora"; l'utente sceglie quale
+  /// tenere primaria, le altre vengono soppresse.
+  final String? anchorKey;
+
+  /// Codipendenza per ancora (dinamica, cross-pack): dipende dalla task
+  /// PRIMARIA con questo anchorKey, risolta a runtime. Alternativa a triggerId
+  /// (fisso, scelto dall'utente nel wizard).
+  final String? triggerAnchorKey;
+
+  bool get isCodependent => triggerId != null || triggerAnchorKey != null;
 
   /// Codipendenza da un pack: id del pack applicato a cui questa task appartiene
   /// (null = task normale creata dall'utente). Le task di un pack non sono
@@ -205,6 +217,8 @@ class Task {
     String? packId,
     String? packSeedKey,
     List<Map<String, dynamic>>? levelHistory,
+    String? anchorKey,
+    String? triggerAnchorKey,
   }) {
     return Task(
       id: id,
@@ -233,6 +247,9 @@ class Task {
       peakLevel: peakLevel ?? this.peakLevel,
       streak: streak ?? this.streak,
       triggerId: clearTrigger ? null : (triggerId ?? this.triggerId),
+      triggerAnchorKey:
+          clearTrigger ? null : (triggerAnchorKey ?? this.triggerAnchorKey),
+      anchorKey: anchorKey ?? this.anchorKey,
       windowMinutes: windowMinutes ?? this.windowMinutes,
       packId: packId ?? this.packId,
       packSeedKey: packSeedKey ?? this.packSeedKey,
@@ -270,6 +287,8 @@ class Task {
         'packId': packId,
         'packSeedKey': packSeedKey,
         'levelHistory': levelHistory,
+        'anchorKey': anchorKey,
+        'triggerAnchorKey': triggerAnchorKey,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -327,6 +346,8 @@ class Task {
         levelHistory: (j['levelHistory'] as List<dynamic>? ?? const [])
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList(),
+        anchorKey: j['anchorKey'] as String?,
+        triggerAnchorKey: j['triggerAnchorKey'] as String?,
       );
 }
 

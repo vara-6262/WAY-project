@@ -196,7 +196,9 @@ class _PlaceWizardState extends ConsumerState<PlaceWizard> {
             style: WayFonts.ui(size: 12.5, color: c.inkFaint),
           )
         else
-          for (final task in data.tasks)
+          // Le task dei pack sono gestite dalla sezione Pacchetti e sono gia'
+          // sempre in scope: non si assegnano manualmente agli ambienti.
+          for (final task in data.tasks.where((t) => t.packId == null))
             PickRow(
               task: task,
               selected: (_useCore && data.isCore(task.id)) ||
