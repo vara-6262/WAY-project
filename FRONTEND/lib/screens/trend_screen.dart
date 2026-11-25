@@ -302,15 +302,13 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
         return ([for (final d in days) f(d)],
             [for (final d in days) context.s.daysShort[Dates.weekdayIndex(d)]]);
       case TrendRange.month:
-        final days = _daysBack(30, today).where(task.activeOn).toList();
-        final step = days.length <= 7 ? 1 : (days.length ~/ 6 + 1);
-        return ([for (final d in days) f(d)],
-            [
-              for (var i = 0; i < days.length; i++)
-                i % step == 0 ? '${days[i].day}/${days[i].month}' : ''
-            ]);
+        return _twoDaySeries(
+            today, 30, (d) => task.activeOn(d) ? f(d) : null,
+            monthLabels: false);
       case TrendRange.year:
-        return _monthly(today, (d) => task.activeOn(d) ? f(d) : null);
+        return _twoDaySeries(
+            today, 364, (d) => task.activeOn(d) ? f(d) : null,
+            monthLabels: true);
     }
   }
 
@@ -333,30 +331,40 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
         return ([for (final d in days) b(d)],
             [for (final d in days) context.s.daysShort[Dates.weekdayIndex(d)]]);
       case TrendRange.month:
-        final days = _daysBack(30, today);
-        return ([for (final d in days) b(d)],
-            [for (var i = 0; i < days.length; i++) i % 7 == 0 ? '${days[i].day}' : '']);
+        return _twoDaySeries(today, 30, (d) => b(d), monthLabels: false);
       case TrendRange.year:
-        return _monthly(today, (d) => b(d));
+        return _twoDaySeries(today, 364, (d) => b(d), monthLabels: true);
     }
   }
 
-  /// Aggrega per mese (ultimi 12): media dei valori presenti nel mese.
-  (List<double?>, List<String>) _monthly(DateTime today, double? Function(DateTime) f) {
+  /// Candele da 2 giorni sugli ultimi [totalDays] (coerente con la Home):
+  /// media dei valori non-null di ogni coppia. Etichetta il numero del giorno
+  /// (~ogni 3 candele) oppure l'iniziale del mese (~ogni 15) sul 12 mesi.
+  (List<double?>, List<String>) _twoDaySeries(
+      DateTime today, int totalDays, double? Function(DateTime) f,
+      {required bool monthLabels}) {
+    final nBuckets = (totalDays / 2).ceil();
+    final labelEvery = monthLabels ? 15 : 3;
     final values = <double?>[];
     final labels = <String>[];
-    for (var m = 11; m >= 0; m--) {
-      final anchor = DateTime(today.year, today.month - m, 1);
+    for (var b = nBuckets - 1; b >= 0; b--) {
+      final d0 = Dates.addDays(today, -(b * 2));
+      final d1 = Dates.addDays(today, -(b * 2 + 1));
       var sum = 0.0;
-      var count = 0;
-      for (var d = 1; d <= 31; d++) {
-        final day = DateTime(anchor.year, anchor.month, d);
-        if (day.month != anchor.month || day.isAfter(today)) continue;
-        final v = f(day);
-        if (v != null) { sum += v; count++; }
+      var n = 0;
+      for (final d in [d0, d1]) {
+        final v = f(d);
+        if (v != null) {
+          sum += v;
+          n++;
+        }
       }
-      values.add(count == 0 ? null : sum / count);
-      labels.add(context.s.months[anchor.month - 1].substring(0, 1).toUpperCase());
+      values.add(n == 0 ? null : sum / n);
+      labels.add(b % labelEvery != 0
+          ? ''
+          : (monthLabels
+              ? context.s.months[d0.month - 1].substring(0, 1).toUpperCase()
+              : '${d1.day}'));
     }
     return (values, labels);
   }

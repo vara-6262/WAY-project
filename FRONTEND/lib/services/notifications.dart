@@ -41,7 +41,6 @@ class NotificationService {
     final a = _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await a?.requestNotificationsPermission();
-    await a?.requestExactAlarmsPermission();
     await a?.createNotificationChannel(const AndroidNotificationChannel(
       'way_reminders',
       'Promemoria WAY',
@@ -165,7 +164,7 @@ class NotificationService {
     final when = tz.TZDateTime.from(r.when, tz.local);
     try {
       await _plugin.zonedSchedule(id, 'WAY', r.text, when, _details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime);
     } catch (_) {

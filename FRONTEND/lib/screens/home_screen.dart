@@ -377,24 +377,25 @@ class _ChartGlanceState extends ConsumerState<_ChartGlance> {
           labels.add(b % 3 == 0 ? '${d1.day}' : '');
         }
       case TrendRange.year:
-        for (var m = 11; m >= 0; m--) {
-          final month = DateTime(today.year, today.month - m, 1);
-          final days = DateTime(month.year, month.month + 1, 0).day;
+        // Candele da 2 giorni sull'ultimo anno (~182 punti): mantiene la
+        // volatilita' giornaliera invece di appiattire in medie mensili.
+        for (var b = 181; b >= 0; b--) {
+          final d0 = Dates.addDays(today, -(b * 2));
+          final d1 = Dates.addDays(today, -(b * 2 + 1));
           var sum = 0.0;
-          var n = 0;
-          for (var d = 1; d <= days; d++) {
-            final day = DateTime(month.year, month.month, d);
-            if (day.isAfter(today)) break;
-            final pv = dayVal(day);
+          var nn = 0;
+          for (final d in [d0, d1]) {
+            final pv = dayVal(d);
             if (pv != null) {
               sum += pv;
-              n++;
+              nn++;
             }
           }
-          values.add(n == 0 ? null : sum / n);
-          labels.add(context.s.months[month.month - 1]
-              .substring(0, 1)
-              .toUpperCase());
+          values.add(nn == 0 ? null : sum / nn);
+          // Etichetta ~ogni mese (15 candele = 30 giorni): iniziale del mese.
+          labels.add(b % 15 == 0
+              ? context.s.months[d0.month - 1].substring(0, 1).toUpperCase()
+              : '');
         }
     }
     return Container(

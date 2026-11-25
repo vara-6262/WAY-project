@@ -83,7 +83,7 @@ const Map<String, IconData> taskIcons = {
   // User-defined
   'teeth': Symbols.dentistry,
   'order': Symbols.deployed_code,
-  'shower': Symbols.shower,
+  'shower': Icons.shower, // Material Icons: Symbols.shower sparisce in release
   'morning_cleaning': Symbols.bathtub_rounded,
   'smoke': Symbols.smoke_free,
   'turbo':Symbols.eighteen_up_rating_rounded,
