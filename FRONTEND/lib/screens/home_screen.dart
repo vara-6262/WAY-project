@@ -351,7 +351,9 @@ class _ChartGlanceState extends ConsumerState<_ChartGlance> {
     final today = Dates.today();
     final values = <double?>[];
     final labels = <String>[];
-    double? dayVal(DateTime day) => data.dayScorePoints(day);
+    // Serie in PERCENTUALE Sabus (bonus incluso, congelata nei giorni passati):
+    // stessa base dell'anello, cosi' la guida "100%" e' il 100% reale.
+    double? dayVal(DateTime day) => data.dayPercentSabus(day)?.toDouble();
     switch (data.range) {
       case TrendRange.week:
         for (var i = 6; i >= 0; i--) {
@@ -417,12 +419,12 @@ class _ChartGlanceState extends ConsumerState<_ChartGlance> {
             key: ValueKey(data.range),
             values: values,
             labels: labels,
-            // Linea tratteggiata al 100% ATTUALE: i punti attesi di oggi,
-            // etichettata cosi' il gap linea/fondo/livello e' leggibile.
-            guide: data.expectedPointsFor(today),
+            // Guida al 100% reale: la serie e' in percentuale, quindi la linea
+            // tratteggiata sta esattamente dove l'anello segna 100%.
+            guide: 100,
             guideLabel: '100%',
             height: 140,
-            format: (v) => v.round().toString(),
+            format: (v) => '${v.round()}%',
           ),
         ),
       ]),

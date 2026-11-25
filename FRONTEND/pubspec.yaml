@@ -1,7 +1,7 @@
 name: way
 description: WAY - le task cambiano peso a seconda dell'ambiente in cui ti trovi.
 publish_to: 'none'
-version: 2.1.1+9
+version: 2.1.1+10
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
