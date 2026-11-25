@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/dates.dart';
+import '../data/chart_agg.dart';
 import '../l10n/strings.dart';
 import '../models/app_data.dart';
 import '../models/models.dart';
@@ -294,8 +295,8 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
   // ---------- helpers serie ----------
 
   /// Serie per task misura/astinenza: SOLO i giorni di dominio (niente buchi).
-  (List<double?>, List<String>) _domainSeries(
-      Task task, TrendRange range, DateTime today, double Function(DateTime) f) {
+  (List<double?>, List<String>) _domainSeries(Task task, TrendRange range,
+      DateTime today, double Function(DateTime) f, DateTime firstDay) {
     switch (range) {
       case TrendRange.week:
         final days = _daysBack(7, today).where(task.activeOn).toList();
@@ -306,20 +307,29 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
             today, 30, (d) => task.activeOn(d) ? f(d) : null,
             monthLabels: false);
       case TrendRange.year:
-        return _twoDaySeries(
-            today, 364, (d) => task.activeOn(d) ? f(d) : null,
-            monthLabels: true);
+        final h = adaptiveHistory(
+          firstDay: firstDay,
+          today: today,
+          value: (d) => task.activeOn(d) ? f(d) : null,
+          months: context.s.months,
+        );
+        return (h.values, h.labels);
     }
   }
 
+  DateTime _taskFirstDay(AppData data, Task task) => task.createdOn != null
+      ? Dates.dayOf(task.createdOn!)
+      : data.firstLoggedDay;
+
   (List<double?>, List<String>) _numberSeries(
           AppData data, Task task, TrendRange range, DateTime today) =>
-      _domainSeries(task, range, today, (d) => data.valueOf(task, d));
+      _domainSeries(task, range, today, (d) => data.valueOf(task, d),
+          _taskFirstDay(data, task));
 
   (List<double?>, List<String>) _absSeries(
           AppData data, Task task, TrendRange range, DateTime today) =>
-      _domainSeries(
-          task, range, today, (d) => data.abstinenceRewardOn(task, d));
+      _domainSeries(task, range, today,
+          (d) => data.abstinenceRewardOn(task, d), _taskFirstDay(data, task));
 
   /// Serie bonus aggregato: punti bonus per giorno (tutti i giorni, nessun dominio).
   (List<double?>, List<String>) _bonusSeries(
@@ -333,7 +343,13 @@ class _TrendScreenState extends ConsumerState<TrendScreen> {
       case TrendRange.month:
         return _twoDaySeries(today, 30, (d) => b(d), monthLabels: false);
       case TrendRange.year:
-        return _twoDaySeries(today, 364, (d) => b(d), monthLabels: true);
+        final h = adaptiveHistory(
+          firstDay: data.firstLoggedDay,
+          today: today,
+          value: (d) => b(d),
+          months: context.s.months,
+        );
+        return (h.values, h.labels);
     }
   }
 

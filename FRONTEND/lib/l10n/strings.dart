@@ -235,7 +235,7 @@ class S {
   String get modeBonus => 'Bonus';
   String get rangeWeek => _p('7 giorni', '7 days', '7 días', '7 jours');
   String get rangeMonth => _p('30 giorni', '30 days', '30 días', '30 jours');
-  String get rangeYear => _p('12 mesi', '12 months', '12 meses', '12 mois');
+  String get rangeYear => _p('Storico', 'All', 'Histórico', 'Historique');
   String get noMeasureTask => _p('Nessuna task a quantità', 'No measured tasks',
       'Sin tareas de cantidad', 'Aucune tâche mesurée');
   String get noMeasureBody => _p(

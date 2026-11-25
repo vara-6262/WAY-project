@@ -10,6 +10,7 @@ import '../models/sabus_scoring.dart';
 import 'account_screen.dart';
 import 'review_screen.dart';
 import 'task_evolution_screen.dart';
+import '../data/chart_agg.dart';
 import 'pack_upgrade_screen.dart';
 import '../fx/anchors.dart';
 import '../fx/fx_controller.dart';
@@ -377,26 +378,15 @@ class _ChartGlanceState extends ConsumerState<_ChartGlance> {
           labels.add(b % 3 == 0 ? '${d1.day}' : '');
         }
       case TrendRange.year:
-        // Candele da 2 giorni sull'ultimo anno (~182 punti): mantiene la
-        // volatilita' giornaliera invece di appiattire in medie mensili.
-        for (var b = 181; b >= 0; b--) {
-          final d0 = Dates.addDays(today, -(b * 2));
-          final d1 = Dates.addDays(today, -(b * 2 + 1));
-          var sum = 0.0;
-          var nn = 0;
-          for (final d in [d0, d1]) {
-            final pv = dayVal(d);
-            if (pv != null) {
-              sum += pv;
-              nn++;
-            }
-          }
-          values.add(nn == 0 ? null : sum / nn);
-          // Etichetta ~ogni mese (15 candele = 30 giorni): iniziale del mese.
-          labels.add(b % 15 == 0
-              ? context.s.months[d0.month - 1].substring(0, 1).toUpperCase()
-              : '');
-        }
+        // "Storico": da primo giorno con dati a oggi, aggregazione adattiva.
+        final hist = adaptiveHistory(
+          firstDay: data.firstLoggedDay,
+          today: today,
+          value: dayVal,
+          months: context.s.months,
+        );
+        values.addAll(hist.values);
+        labels.addAll(hist.labels);
     }
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../fx/anchors.dart';
 import '../l10n/strings.dart';
 import '../fx/fx_controller.dart';

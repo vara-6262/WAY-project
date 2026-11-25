@@ -410,6 +410,24 @@ extension AppStats on AppData {
 
   double valueOf(Task task, DateTime day) => log[Dates.key(day)]?[task.id] ?? 0;
 
+  /// Primo giorno con dati reali: il più vecchio tra le voci di log e le date
+  /// di creazione delle task. Base per la vista "Storico". Oggi se vuoto.
+  DateTime get firstLoggedDay {
+    DateTime? min;
+    for (final k in log.keys) {
+      final d = Dates.parse(k);
+      if (min == null || d.isBefore(min)) min = d;
+    }
+    for (final t in tasks) {
+      final c = t.createdOn;
+      if (c != null) {
+        final cd = Dates.dayOf(c);
+        if (min == null || cd.isBefore(min)) min = cd;
+      }
+    }
+    return min ?? Dates.today();
+  }
+
   /// Minuto del giorno in cui [taskId] e' stata completata in [day], se c'e'.
   int? doneMinute(String taskId, DateTime day) => doneAt[Dates.key(day)]?[taskId];
 
