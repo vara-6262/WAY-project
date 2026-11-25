@@ -21,7 +21,7 @@ class WayApp extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         theme: WayTheme.build(palette),
         locale: Locale(lang.code),
-        supportedLocales: const [Locale('it'), Locale('en')],
+        supportedLocales: const [Locale('it'), Locale('en'), Locale('es'), Locale('fr')],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,

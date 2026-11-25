@@ -6,7 +6,9 @@ class LT {
   const LT(this.it, this.en);
   final String it;
   final String en;
-  String call(AppLang lang) => lang == AppLang.en ? en : it;
+  // Per ora i contenuti dei pack sono it/en; le altre lingue ricadono
+  // sull'inglese (come il resto delle stringhe).
+  String call(AppLang lang) => lang == AppLang.it ? it : en;
 }
 
 /// Un passo di upgrade PRE-DECISO per una task di pack. Insegna *come* si fa

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:way/l10n/strings.dart';
 
 import '../data/glyphs.dart';
 import '../models/app_data.dart';
@@ -48,7 +49,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const ScreenHeader(eyebrow: 'Configurazione', title: 'Tasks'),
+        ScreenHeader(eyebrow: context.s.tasksEyebrow, title: 'Tasks'),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
@@ -59,10 +60,10 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 onDragStateChanged: _setDragging,
               ),
               const SizedBox(height: 20),
-              const SectionLabel('Le tue task'),
+              SectionLabel(context.s.yourTasks),
               PrimaryButton(
                 key: taskCreateKey,
-                label: 'Crea una nuova task',
+                label: context.s.createNewTask,
                 icon: Icons.add_rounded,
                 onPressed: () {
                   // Durante il primo utilizzo questo stesso pulsante apre
@@ -99,22 +100,21 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Text(
-                    'Trascina una task nell\'hub per metterla nel nucleo, trascinala fuori per toglierla. Tieni premuto per le opzioni.',
+                    context.s.taskDragHint,
                     style: WayFonts.ui(size: 11.5, color: context.c.inkFaint),
                   ),
                 ),
               if (!hasTasks)
-                const EmptyStateBox(
+                EmptyStateBox(
                   icon: Icons.add,
-                  title: 'Ancora niente',
-                  body:
-                      'Una task descrive cosa vuoi mantenere e a che livello di intensita\'. Gli ambienti si costruiscono sopra le task.',
+                  title: context.s.nothingYet,
+                  body: context.s.noTasksBody,
                 ),
               _TaskListDropZone(
                 active: _draggingFromCore == true,
                 onAccept: (drag) {
                   ref.read(appProvider.notifier).removeFromCore(drag.task.id);
-                  showToast(context, '${drag.task.name} fuori dal nucleo');
+                  showToast(context, context.s.taskOutOfCore(drag.task.name));
                 },
                 child: Column(
                   children: [
@@ -164,11 +164,11 @@ class _CoreHub extends ConsumerWidget {
       onAcceptWithDetails: (details) {
         final task = details.data.task;
         if (data.isCore(task.id)) {
-          showToast(context, '${task.name} e\' gia\' nel nucleo');
+          showToast(context, context.s.taskAlreadyCore(task.name));
           return;
         }
         ref.read(appProvider.notifier).addToCore(task.id);
-        showToast(context, '${task.name} e\' nel nucleo');
+        showToast(context, context.s.taskNowCore(task.name));
       },
       builder: (context, candidate, rejected) {
         final hot = candidate.isNotEmpty;
@@ -209,7 +209,7 @@ class _CoreHub extends ConsumerWidget {
                     const SizedBox(width: 13),
                     Expanded(
                       child: Text(
-                        'My Core Session',
+                        context.s.myCoreSession,
                         style: WayFonts.display(
                           size: 15.5,
                           weight: FontWeight.w600,
@@ -218,7 +218,7 @@ class _CoreHub extends ConsumerWidget {
                       ),
                     ),
                     if (hasTasks)
-                      Pill('${data.coreIds.length} task', bg: c.surface, fg: c.inkFaint)
+                      Pill(context.s.nTasks(data.coreIds.length), bg: c.surface, fg: c.inkFaint)
                     else
                       Icon(Icons.lock_outline, size: 15, color: c.inkFaint),
                   ],
@@ -226,7 +226,7 @@ class _CoreHub extends ConsumerWidget {
                 const SizedBox(height: 11),
                 if (!hasTasks)
                   Text(
-                    'Il nucleo che resta attivo in ogni ambiente. Si sblocca appena crei la prima task.',
+                    context.s.coreLockedDesc,
                     style: WayFonts.ui(size: 12.5, color: c.inkSoft),
                   )
                 else ...[
@@ -245,13 +245,13 @@ class _CoreHub extends ConsumerWidget {
                   ),
                   const SizedBox(height: 11),
                   Text(
-                    'Restano attive ovunque, qualunque ambiente sia inserito nell\'hub.',
+                    context.s.coreEverywhereDesc,
                     style: WayFonts.ui(size: 12.5, color: c.inkSoft),
                   ),
                   if (showDropHint) ...[
                     const SizedBox(height: 11),
                     Text(
-                      '↓ RILASCIA QUI PER AGGIUNGERE AL NUCLEO',
+                      context.s.dropToAddCore,
                       style: WayFonts.label(color: c.accent, size: 9.5),
                     ),
                   ],
@@ -360,7 +360,7 @@ class _AddChip extends StatelessWidget {
             Icon(Icons.add, size: 15, color: c.accent),
             const SizedBox(width: 5),
             Text(
-              'Aggiungi',
+              context.s.addShort,
               style: WayFonts.ui(size: 12.5, weight: FontWeight.w500, color: c.accent),
             ),
           ],
@@ -397,7 +397,7 @@ class _TaskListDropZone extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  '↑ RILASCIA QUI PER TOGLIERE DAL NUCLEO',
+                  context.s.dropToRemoveCore,
                   style: WayFonts.label(color: c.accent, size: 9.5),
                 ),
               ),
