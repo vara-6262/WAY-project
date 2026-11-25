@@ -631,7 +631,7 @@ class AppController extends Notifier<AppData> {
         name: s.name(lang),
         iconKey: s.iconKey,
         description: '',
-        days: isCodep ? const [0, 1, 2, 3, 4, 5, 6] : s.days,
+        days: s.days,
         criteria: _mkCriteria([for (final c in s.criteria) c(lang)]),
         kind: s.kind,
         reward: s.reward,
