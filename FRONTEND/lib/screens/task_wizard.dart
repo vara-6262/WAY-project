@@ -40,7 +40,7 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
   int _start = 6;
   int _end = 23;
   DomainPeriod _period = DomainPeriod.daily;
-  int _tau = 14;
+  int _tau = 7;
 
   // Codipendenza (solo per Completa/Numero): timeframe dinamico legato a un
   // trigger invece di giorni+orario fissi.
@@ -543,7 +543,7 @@ class _TaskWizardState extends ConsumerState<TaskWizard> {
           const SizedBox(height: 8),
           Row(
             children: [
-              for (final p in [(7, context.s.phaseShort), (14, context.s.phaseMedium), (30, context.s.phaseLong)])
+              for (final p in [(3, context.s.phaseShort), (7, context.s.phaseMedium), (14, context.s.phaseLong)])
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 8),
